@@ -15,7 +15,7 @@ python -m pytest -q
 
 **Live demo:** [sentinel-benchmarkjava.streamlit.app](https://sentinel-benchmarkjava.streamlit.app/)
 
-Ứng dụng đã được deploy từ repository này với entrypoint `app/streamlit_app.py`. Giao diện cho phép tìm kiếm findings theo CWE hoặc từ khóa, so sánh kết quả giữa ba scanner và truy ngược về artifact gốc.
+Ứng dụng đã được deploy từ repository này với entrypoint `app/streamlit_app.py`. Giao diện được tổ chức thành một **Security Analysis Workspace** gồm Overview, Findings Explorer, Agent Analysis, Reports và Evaluation. Người dùng có thể chọn canonical group, xem evidence cùng KB liên quan, tạo structured report, review và xuất JSONL.
 
 **GitHub Code scanning:** [89 Semgrep alerts trên phạm vi 100 file](https://github.com/phoebe497/sentinel-benchmarkJava/security/code-scanning).
 
@@ -45,3 +45,5 @@ python -m pytest -q
 | 4–6 | Chưa bắt đầu | Cập nhật theo từng tuần |
 
 Chi tiết: [`docs/repository-layout.md`](docs/repository-layout.md).
+
+Thiết kế UI Week 3: [`docs/security-analysis-workspace.md`](docs/security-analysis-workspace.md).

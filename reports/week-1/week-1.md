@@ -19,4 +19,6 @@
 
 DeepSec có recall cao nhất; Semgrep `security-audit` đạt precision cao nhất và nhanh hơn nhiều. Kết quả chỉ có giá trị trên first-100 sample, chưa đại diện toàn bộ 2.740 test case.
 
-**Bằng chứng:** `artifacts/week-1/llm-20260728/results.json`, `artifacts/week-1/semgrep-20260806/results.json`, `datasets/manifests/benchmarkjava-first-100.json`. Snapshot Semgrep 2026-07-29 được giữ riêng để đối chiếu lịch sử.
+CI run `31082995915` đã pass cả test và Semgrep; SARIF upload thành công và tạo 89 alerts tại GitHub Security → Code scanning.
+
+**Bằng chứng:** `artifacts/week-1/llm-20260728/results.json`, `artifacts/week-1/semgrep-20260806/results.json`, `datasets/manifests/benchmarkjava-first-100.json`, [GitHub Actions run](https://github.com/phoebe497/sentinel-benchmarkJava/actions/runs/31082995915). Snapshot Semgrep 2026-07-29 được giữ riêng để đối chiếu lịch sử.

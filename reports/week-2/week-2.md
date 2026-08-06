@@ -15,7 +15,7 @@
 - 372 scanner observations và 371 canonical groups từ đúng 3 scanner trên cùng first-100 corpus.
 - 12 knowledge documents; tìm kiếm theo CWE/tên lỗ hổng và xem được artifact/run nguồn.
 - Automated tests kiểm tra số record, active dataset, số scanner, search và ground-truth manifest.
-- Live demo: <https://search-feature-kb-w2.streamlit.app/> (cần repoint sang repo mới sau khi GitHub được xác thực lại).
+- Legacy live URL: <https://search-feature-kb-w2.streamlit.app/> hiện redirect tới Streamlit login; code mới đã local smoke-test HTTP 200 nhưng cần repoint sang repo này và bật quyền xem public trước khi gửi mentor.
 
 Observation là cảnh báo của scanner, không đồng nghĩa lỗ hổng đã human-validate. `canonical_id` là phép gom deterministic, không phải CVE hay ground-truth ID.
 

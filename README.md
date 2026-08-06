@@ -13,7 +13,9 @@ streamlit run app/streamlit_app.py
 python -m pytest -q
 ```
 
-Live demo Week 2: <https://search-feature-kb-w2.streamlit.app/>
+Live demo Week 2 (legacy deployment): <https://search-feature-kb-w2.streamlit.app/>. Kiểm tra ngày 2026-08-06 cho thấy URL đang chuyển tới trang đăng nhập Streamlit, vì vậy chưa được tính là public mentor demo. Code mới đã sẵn sàng tại `app/streamlit_app.py` để repoint deployment sang repo này.
+
+GitHub Code scanning: <https://github.com/phoebe497/sentinel-benchmarkJava/security/code-scanning> (89 Semgrep alerts từ first-100 scope).
 
 > BenchmarkJava chứa mã cố ý có lỗ hổng. Repo chỉ dùng source để đánh giá scanner; không deploy BenchmarkJava ra Internet.
 

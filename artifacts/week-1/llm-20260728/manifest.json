@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "run_id": "20260728T043417Z-ocr-deepsec-first100",
+  "status": "success",
+  "started_at": "2026-07-28T04:34:17.935440Z",
+  "selection": {
+    "policy": "lexicographically first 100 BenchmarkTest Java files",
+    "count": 100,
+    "first": "BenchmarkTest00001",
+    "last": "BenchmarkTest00100",
+    "positive": 75,
+    "negative": 25
+  },
+  "benchmark": {
+    "commit": "79b9bd6177e07991a9c11dc19e457c840e229931",
+    "expected_results_sha256": "f0311c850dea7f15125113f7cfdbd7ad612d7f5951c7331584f6981b6ae2d630",
+    "total_cases": 2740
+  },
+  "scanners": {
+    "primary": {
+      "name": "Alibaba OpenCodeReview",
+      "commit": "69e68a93173826aa81bfce13264048a7647bb8b9"
+    },
+    "comparison": {
+      "name": "Vercel DeepSec",
+      "backend": "Pi",
+      "commit": "f75a16803ec5250938bacfe41571d929e8564f45"
+    }
+  },
+  "router": {
+    "base_url": "http://127.0.0.1:20128/v1",
+    "model": "gc/gemini-2.5-flash",
+    "api_key_env": "NINE_ROUTER_API_KEY",
+    "api_key_persisted": false
+  },
+  "leakage_controls": {
+    "ground_truth_sent_to_scanners": false,
+    "expected_results_mounted_in_containers": false,
+    "metadata_xml_mounted_in_containers": false,
+    "scanner_mount": "Java testcode directory only"
+  },
+  "ended_at": "2026-07-28T09:16:26.405234Z",
+  "recovery": {
+    "failed_deepsec_files": [
+      "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00043.java"
+    ],
+    "process_run_ids": [
+      "20260728051301-881e46904631b588",
+      "20260728091616-30e7a6974a89273d"
+    ],
+    "policy": "retry only failed files; retain successful per-file analyses"
+  }
+}

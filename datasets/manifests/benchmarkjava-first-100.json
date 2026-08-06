@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/OWASP-Benchmark/BenchmarkJava.git",
+  "commit": "79b9bd6177e07991a9c11dc19e457c840e229931",
+  "selection_policy": "lexicographically first 100 zero-padded BenchmarkTest Java filenames",
+  "first": "BenchmarkTest00001.java",
+  "last": "BenchmarkTest00100.java",
+  "count": 100,
+  "positive": 75,
+  "negative": 25,
+  "ground_truth_path": "expectedresults-1.2.csv",
+  "ground_truth_sha256": "f0311c850dea7f15125113f7cfdbd7ad612d7f5951c7331584f6981b6ae2d630",
+  "ground_truth_joined_after_scanning": true
+}

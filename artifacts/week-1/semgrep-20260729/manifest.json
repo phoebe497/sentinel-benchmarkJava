@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "run_id": "20260729T040126Z-semgrep-first100",
+  "started_at": "2026-07-29T04:01:26.721032Z",
+  "status": "success",
+  "scanner": {
+    "name": "Semgrep",
+    "version": null,
+    "binary": "C:\\Users\\cutie\\AppData\\Roaming\\Python\\Python313\\Scripts\\semgrep.exe",
+    "non_llm": true
+  },
+  "benchmark": {
+    "path": "D:\\VinSOC\\sentinel-week1\\sast-benchmark\\benchmark-src",
+    "commit": "79b9bd6177e07991a9c11dc19e457c840e229931",
+    "lock_file": "D:\\VinSOC\\sentinel-week1\\sast-benchmark\\harness\\benchmark-lock.json",
+    "lock": {
+      "repository": "https://github.com/OWASP-Benchmark/BenchmarkJava.git",
+      "commit": "79b9bd6177e07991a9c11dc19e457c840e229931",
+      "expected_results": {
+        "path": "expectedresults-1.2.csv",
+        "sha256": "f0311c850dea7f15125113f7cfdbd7ad612d7f5951c7331584f6981b6ae2d630",
+        "cases": 2740
+      }
+    },
+    "selected_cases": 100
+  },
+  "selection": {
+    "files": [
+      "BenchmarkTest00001",
+      "BenchmarkTest00002",
+      "BenchmarkTest00003",
+      "BenchmarkTest00004",
+      "BenchmarkTest00005",
+      "BenchmarkTest00006",
+      "BenchmarkTest00007",
+      "BenchmarkTest00008",
+      "BenchmarkTest00009",
+      "BenchmarkTest00010",
+      "BenchmarkTest00011",
+      "BenchmarkTest00012",
+      "BenchmarkTest00013",
+      "BenchmarkTest00014",
+      "BenchmarkTest00015",
+      "BenchmarkTest00016",
+      "BenchmarkTest00017",
+      "BenchmarkTest00018",
+      "BenchmarkTest00019",
+      "BenchmarkTest00020",
+      "BenchmarkTest00021",
+      "BenchmarkTest00022",
+      "BenchmarkTest00023",
+      "BenchmarkTest00024",
+      "BenchmarkTest00025",
+      "BenchmarkTest00026",
+      "BenchmarkTest00027",
+      "BenchmarkTest00028",
+      "BenchmarkTest00029",
+      "BenchmarkTest00030",
+      "BenchmarkTest00031",
+      "BenchmarkTest00032",
+      "BenchmarkTest00033",
+      "BenchmarkTest00034",
+      "BenchmarkTest00035",
+      "BenchmarkTest00036",
+      "BenchmarkTest00037",
+      "BenchmarkTest00038",
+      "BenchmarkTest00039",
+      "BenchmarkTest00040",
+      "BenchmarkTest00041",
+      "BenchmarkTest00042",
+      "BenchmarkTest00043",
+      "BenchmarkTest00044",
+      "BenchmarkTest00045",
+      "BenchmarkTest00046",
+      "BenchmarkTest00047",
+      "BenchmarkTest00048",
+      "BenchmarkTest00049",
+      "BenchmarkTest00050",
+      "BenchmarkTest00051",
+      "BenchmarkTest00052",
+      "BenchmarkTest00053",
+      "BenchmarkTest00054",
+      "BenchmarkTest00055",
+      "BenchmarkTest00056",
+      "BenchmarkTest00057",
+      "BenchmarkTest00058",
+      "BenchmarkTest00059",
+      "BenchmarkTest00060",
+      "BenchmarkTest00061",
+      "BenchmarkTest00062",
+      "BenchmarkTest00063",
+      "BenchmarkTest00064",
+      "BenchmarkTest00065",
+      "BenchmarkTest00066",
+      "BenchmarkTest00067",
+      "BenchmarkTest00068",
+      "BenchmarkTest00069",
+      "BenchmarkTest00070",
+      "BenchmarkTest00071",
+      "BenchmarkTest00072",
+      "BenchmarkTest00073",
+      "BenchmarkTest00074",
+      "BenchmarkTest00075",
+      "BenchmarkTest00076",
+      "BenchmarkTest00077",
+      "BenchmarkTest00078",
+      "BenchmarkTest00079",
+      "BenchmarkTest00080",
+      "BenchmarkTest00081",
+      "BenchmarkTest00082",
+      "BenchmarkTest00083",
+      "BenchmarkTest00084",
+      "BenchmarkTest00085",
+      "BenchmarkTest00086",
+      "BenchmarkTest00087",
+      "BenchmarkTest00088",
+      "BenchmarkTest00089",
+      "BenchmarkTest00090",
+      "BenchmarkTest00091",
+      "BenchmarkTest00092",
+      "BenchmarkTest00093",
+      "BenchmarkTest00094",
+      "BenchmarkTest00095",
+      "BenchmarkTest00096",
+      "BenchmarkTest00097",
+      "BenchmarkTest00098",
+      "BenchmarkTest00099",
+      "BenchmarkTest00100"
+    ],
+    "source_root": "D:\\VinSOC\\sentinel-week1\\sast-benchmark\\runs\\20260729T040126Z-semgrep-first100\\raw\\targets\\src\\main\\java\\org\\owasp\\benchmark\\testcode"
+  },
+  "variants": {
+    "java": {
+      "label": "S0-semgrep-java",
+      "configs": [
+        "p/java"
+      ],
+      "description": "Semgrep Java ruleset; non-LLM baseline."
+    },
+    "security-audit": {
+      "label": "S1-semgrep-security-audit",
+      "configs": [
+        "p/security-audit"
+      ],
+      "description": "Semgrep security-audit ruleset; broader non-LLM baseline."
+    },
+    "java-plus-audit": {
+      "label": "S2-semgrep-java-plus-audit",
+      "configs": [
+        "p/java",
+        "p/security-audit"
+      ],
+      "description": "Configuration ablation: union of Java and security-audit rules."
+    },
+    "java-error": {
+      "label": "S3-semgrep-java-error-only",
+      "configs": [
+        "p/java"
+      ],
+      "severity": "ERROR",
+      "description": "Configuration ablation: Java rules filtered to ERROR severity."
+    }
+  },
+  "ground_truth": {
+    "sent_to_scanner": false,
+    "joined_after_scan": true,
+    "source": "expectedresults-1.2.csv"
+  },
+  "ended_at": "2026-07-29T04:02:20.500376Z",
+  "output_files": [
+    "manifest.json",
+    "raw/selected-cases.jsonl",
+    "raw/targets/",
+    "variants/<name>/raw.json",
+    "variants/<name>/terminal.log",
+    "variants/<name>/findings.jsonl",
+    "variants/<name>/predictions.jsonl",
+    "variants/<name>/metrics.json",
+    "results.json",
+    "comparison.md"
+  ]
+}

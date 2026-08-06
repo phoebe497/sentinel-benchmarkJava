@@ -1,0 +1,62 @@
+{
+  "coverage": {
+    "selected_cases": 100,
+    "processed_cases": 100,
+    "complete": true
+  },
+  "timing": {
+    "process_wall_clock_seconds": 11.156789
+  },
+  "tokens": {
+    "accounting": "not applicable: Semgrep is a non-LLM scanner",
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "total_tokens": 0
+  },
+  "findings": {
+    "total": 23,
+    "matching_expected_category": 23,
+    "files_with_findings": 19,
+    "by_severity": {
+      "none": 23
+    }
+  },
+  "metrics": {
+    "scoring": "OWASP ground truth; no LLM judge",
+    "match_policy": "Semgrep CWE metadata or category text mapped to the expected test CWE",
+    "overall": {
+      "TP": 15,
+      "FP": 4,
+      "FN": 60,
+      "TN": 21,
+      "precision": 0.7894736842105263,
+      "recall": 0.2,
+      "f1": 0.31914893617021284,
+      "false_positive_rate": 0.16,
+      "scored_cases": 100
+    }
+  },
+  "execution": {
+    "return_code": 0,
+    "command": [
+      "C:\\Users\\cutie\\AppData\\Roaming\\Python\\Python313\\Scripts\\semgrep.exe",
+      "--metrics",
+      "off",
+      "--disable-version-check",
+      "--config",
+      "p/java",
+      "--severity",
+      "ERROR",
+      "--json",
+      "--json-output",
+      "D:\\VinSOC\\sentinel-week1\\sast-benchmark\\runs\\20260729T040126Z-semgrep-first100\\variants\\java-error\\raw.json",
+      "--no-git-ignore",
+      "--no-secrets-validation",
+      "--jobs",
+      "1",
+      "--time",
+      "D:\\VinSOC\\sentinel-week1\\sast-benchmark\\runs\\20260729T040126Z-semgrep-first100\\raw\\targets"
+    ],
+    "terminal_log": "D:\\VinSOC\\sentinel-week1\\sast-benchmark\\runs\\20260729T040126Z-semgrep-first100\\variants\\java-error\\terminal.log"
+  }
+}

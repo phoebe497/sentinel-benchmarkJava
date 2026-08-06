@@ -1,0 +1,23 @@
+[
+  {
+    "id": "benchmark-open-code-review",
+    "dataset": "owasp-benchmark-java",
+    "tool": "Alibaba OpenCodeReview",
+    "path": "artifacts/week-1/llm-20260728/raw/open-code-review-findings.jsonl",
+    "run_id": "20260728T043417Z-ocr-deepsec-first100"
+  },
+  {
+    "id": "benchmark-deepsec",
+    "dataset": "owasp-benchmark-java",
+    "tool": "Vercel DeepSec/Pi",
+    "path": "artifacts/week-1/llm-20260728/raw/deepsec-findings.jsonl",
+    "run_id": "20260728T043417Z-ocr-deepsec-first100"
+  },
+  {
+    "id": "benchmark-semgrep",
+    "dataset": "owasp-benchmark-java",
+    "tool": "Semgrep security-audit",
+    "path": "artifacts/week-1/semgrep-20260806/variants/security-audit/raw.json",
+    "run_id": "20260806T074509Z-semgrep-first100"
+  }
+]

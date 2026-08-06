@@ -1,0 +1,127 @@
+{
+  "scoring": "OWASP ground truth; no LLM judge",
+  "match_policy": "finding text mapped to the CWE/category expected for each test",
+  "overall": {
+    "TP": 60,
+    "FP": 6,
+    "FN": 15,
+    "TN": 19,
+    "precision": 0.9090909090909091,
+    "recall": 0.8,
+    "f1": 0.8510638297872342,
+    "false_positive_rate": 0.24,
+    "cases": 100
+  },
+  "by_cwe": {
+    "CWE-22": {
+      "TP": 10,
+      "FP": 0,
+      "FN": 0,
+      "TN": 2,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "false_positive_rate": 0.0,
+      "cases": 12
+    },
+    "CWE-327": {
+      "TP": 4,
+      "FP": 1,
+      "FN": 5,
+      "TN": 2,
+      "precision": 0.8,
+      "recall": 0.4444444444444444,
+      "f1": 0.5714285714285714,
+      "false_positive_rate": 0.3333333333333333,
+      "cases": 12
+    },
+    "CWE-328": {
+      "TP": 1,
+      "FP": 0,
+      "FN": 6,
+      "TN": 6,
+      "precision": 1.0,
+      "recall": 0.14285714285714285,
+      "f1": 0.25,
+      "false_positive_rate": 0.0,
+      "cases": 13
+    },
+    "CWE-330": {
+      "TP": 13,
+      "FP": 2,
+      "FN": 0,
+      "TN": 3,
+      "precision": 0.8666666666666667,
+      "recall": 1.0,
+      "f1": 0.9285714285714286,
+      "false_positive_rate": 0.4,
+      "cases": 18
+    },
+    "CWE-501": {
+      "TP": 2,
+      "FP": 0,
+      "FN": 1,
+      "TN": 2,
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "f1": 0.8,
+      "false_positive_rate": 0.0,
+      "cases": 5
+    },
+    "CWE-614": {
+      "TP": 0,
+      "FP": 0,
+      "FN": 1,
+      "TN": 3,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "false_positive_rate": 0.0,
+      "cases": 4
+    },
+    "CWE-78": {
+      "TP": 7,
+      "FP": 2,
+      "FN": 0,
+      "TN": 1,
+      "precision": 0.7777777777777778,
+      "recall": 1.0,
+      "f1": 0.8750000000000001,
+      "false_positive_rate": 0.6666666666666666,
+      "cases": 10
+    },
+    "CWE-79": {
+      "TP": 8,
+      "FP": 0,
+      "FN": 0,
+      "TN": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "false_positive_rate": null,
+      "cases": 8
+    },
+    "CWE-89": {
+      "TP": 13,
+      "FP": 1,
+      "FN": 1,
+      "TN": 0,
+      "precision": 0.9285714285714286,
+      "recall": 0.9285714285714286,
+      "f1": 0.9285714285714286,
+      "false_positive_rate": 1.0,
+      "cases": 15
+    },
+    "CWE-90": {
+      "TP": 2,
+      "FP": 0,
+      "FN": 1,
+      "TN": 0,
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "f1": 0.8,
+      "false_positive_rate": null,
+      "cases": 3
+    }
+  }
+}

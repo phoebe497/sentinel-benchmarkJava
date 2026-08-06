@@ -1,0 +1,365 @@
+{
+  "schema_version": 1,
+  "run_id": "20260728T043417Z-ocr-deepsec-first100",
+  "status": "success",
+  "selection": {
+    "policy": "first 100 files by zero-padded BenchmarkTest filename",
+    "selected_cases": 100,
+    "first_file": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00001.java",
+    "last_file": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00100.java",
+    "positive": 75,
+    "negative": 25
+  },
+  "router": {
+    "base_url": "http://127.0.0.1:20128/v1",
+    "model": "gc/gemini-2.5-flash",
+    "api_key_persisted": false
+  },
+  "benchmark": {
+    "commit": "79b9bd6177e07991a9c11dc19e457c840e229931",
+    "ground_truth": "expectedresults-1.2.csv",
+    "ground_truth_joined_after_scanning": true
+  },
+  "scanners": {
+    "open_code_review": {
+      "scanner": {
+        "name": "Alibaba OpenCodeReview",
+        "commit": "69e68a93173826aa81bfce13264048a7647bb8b9",
+        "role": "primary",
+        "session_id": "783f1b4d-2164-40df-8aff-0e32f9789bf0",
+        "process_exit_code": 0
+      },
+      "coverage": {
+        "selected_cases": 100,
+        "processed_cases": 100,
+        "complete": true
+      },
+      "timing": {
+        "build_wall_clock_seconds": 0,
+        "process_wall_clock_seconds": 2408.0,
+        "scanner_reported_analysis_seconds": null
+      },
+      "tokens": {
+        "accounting": "scanner/API-reported usage",
+        "input_tokens": 1153796,
+        "output_tokens": 63087,
+        "total_tokens": 1216883
+      },
+      "findings": {
+        "total": 131,
+        "matching_expected_category": 72,
+        "files_with_findings": 90,
+        "by_severity": {
+          "high": 62,
+          "medium": 16,
+          "critical": 39,
+          "low": 14
+        }
+      },
+      "metrics": {
+        "scoring": "OWASP ground truth; no LLM judge",
+        "match_policy": "finding text mapped to the CWE/category expected for each test",
+        "overall": {
+          "TP": 60,
+          "FP": 6,
+          "FN": 15,
+          "TN": 19,
+          "precision": 0.9090909090909091,
+          "recall": 0.8,
+          "f1": 0.8510638297872342,
+          "false_positive_rate": 0.24,
+          "cases": 100
+        },
+        "by_cwe": {
+          "CWE-22": {
+            "TP": 10,
+            "FP": 0,
+            "FN": 0,
+            "TN": 2,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "false_positive_rate": 0.0,
+            "cases": 12
+          },
+          "CWE-327": {
+            "TP": 4,
+            "FP": 1,
+            "FN": 5,
+            "TN": 2,
+            "precision": 0.8,
+            "recall": 0.4444444444444444,
+            "f1": 0.5714285714285714,
+            "false_positive_rate": 0.3333333333333333,
+            "cases": 12
+          },
+          "CWE-328": {
+            "TP": 1,
+            "FP": 0,
+            "FN": 6,
+            "TN": 6,
+            "precision": 1.0,
+            "recall": 0.14285714285714285,
+            "f1": 0.25,
+            "false_positive_rate": 0.0,
+            "cases": 13
+          },
+          "CWE-330": {
+            "TP": 13,
+            "FP": 2,
+            "FN": 0,
+            "TN": 3,
+            "precision": 0.8666666666666667,
+            "recall": 1.0,
+            "f1": 0.9285714285714286,
+            "false_positive_rate": 0.4,
+            "cases": 18
+          },
+          "CWE-501": {
+            "TP": 2,
+            "FP": 0,
+            "FN": 1,
+            "TN": 2,
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "false_positive_rate": 0.0,
+            "cases": 5
+          },
+          "CWE-614": {
+            "TP": 0,
+            "FP": 0,
+            "FN": 1,
+            "TN": 3,
+            "precision": null,
+            "recall": 0.0,
+            "f1": null,
+            "false_positive_rate": 0.0,
+            "cases": 4
+          },
+          "CWE-78": {
+            "TP": 7,
+            "FP": 2,
+            "FN": 0,
+            "TN": 1,
+            "precision": 0.7777777777777778,
+            "recall": 1.0,
+            "f1": 0.8750000000000001,
+            "false_positive_rate": 0.6666666666666666,
+            "cases": 10
+          },
+          "CWE-79": {
+            "TP": 8,
+            "FP": 0,
+            "FN": 0,
+            "TN": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "false_positive_rate": null,
+            "cases": 8
+          },
+          "CWE-89": {
+            "TP": 13,
+            "FP": 1,
+            "FN": 1,
+            "TN": 0,
+            "precision": 0.9285714285714286,
+            "recall": 0.9285714285714286,
+            "f1": 0.9285714285714286,
+            "false_positive_rate": 1.0,
+            "cases": 15
+          },
+          "CWE-90": {
+            "TP": 2,
+            "FP": 0,
+            "FN": 1,
+            "TN": 0,
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8,
+            "false_positive_rate": null,
+            "cases": 3
+          }
+        }
+      }
+    },
+    "deepsec": {
+      "scanner": {
+        "name": "Vercel DeepSec",
+        "commit": "f75a16803ec5250938bacfe41571d929e8564f45",
+        "role": "comparison",
+        "backend": "Pi",
+        "deepsec_run_ids": [
+          "20260728051301-881e46904631b588",
+          "20260728091616-30e7a6974a89273d"
+        ],
+        "retry_files": [
+          "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00043.java"
+        ],
+        "retry_exit_code": 0,
+        "retry_wall_clock_seconds": 18.842612
+      },
+      "coverage": {
+        "selected_cases": 100,
+        "processed_cases": 100,
+        "complete": true
+      },
+      "timing": {
+        "build_wall_clock_seconds": 0,
+        "process_wall_clock_seconds": 1909.339,
+        "scanner_reported_analysis_seconds": 1646.868
+      },
+      "tokens": {
+        "accounting": "scanner/API-reported usage",
+        "input_tokens": 777529,
+        "output_tokens": 223313,
+        "total_tokens": 1000842
+      },
+      "findings": {
+        "total": 152,
+        "matching_expected_category": 81,
+        "files_with_findings": 95,
+        "by_severity": {
+          "high": 40,
+          "medium": 64,
+          "critical": 24,
+          "bug": 16,
+          "high_bug": 8
+        }
+      },
+      "metrics": {
+        "scoring": "OWASP ground truth; no LLM judge",
+        "match_policy": "finding text mapped to the CWE/category expected for each test",
+        "overall": {
+          "TP": 64,
+          "FP": 10,
+          "FN": 11,
+          "TN": 15,
+          "precision": 0.8648648648648649,
+          "recall": 0.8533333333333334,
+          "f1": 0.8590604026845637,
+          "false_positive_rate": 0.4,
+          "cases": 100
+        },
+        "by_cwe": {
+          "CWE-22": {
+            "TP": 10,
+            "FP": 2,
+            "FN": 0,
+            "TN": 0,
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "false_positive_rate": 1.0,
+            "cases": 12
+          },
+          "CWE-327": {
+            "TP": 9,
+            "FP": 1,
+            "FN": 0,
+            "TN": 2,
+            "precision": 0.9,
+            "recall": 1.0,
+            "f1": 0.9473684210526316,
+            "false_positive_rate": 0.3333333333333333,
+            "cases": 12
+          },
+          "CWE-328": {
+            "TP": 1,
+            "FP": 1,
+            "FN": 6,
+            "TN": 5,
+            "precision": 0.5,
+            "recall": 0.14285714285714285,
+            "f1": 0.22222222222222224,
+            "false_positive_rate": 0.16666666666666666,
+            "cases": 13
+          },
+          "CWE-330": {
+            "TP": 11,
+            "FP": 3,
+            "FN": 2,
+            "TN": 2,
+            "precision": 0.7857142857142857,
+            "recall": 0.8461538461538461,
+            "f1": 0.8148148148148148,
+            "false_positive_rate": 0.6,
+            "cases": 18
+          },
+          "CWE-501": {
+            "TP": 1,
+            "FP": 0,
+            "FN": 2,
+            "TN": 2,
+            "precision": 1.0,
+            "recall": 0.3333333333333333,
+            "f1": 0.5,
+            "false_positive_rate": 0.0,
+            "cases": 5
+          },
+          "CWE-614": {
+            "TP": 1,
+            "FP": 0,
+            "FN": 0,
+            "TN": 3,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "false_positive_rate": 0.0,
+            "cases": 4
+          },
+          "CWE-78": {
+            "TP": 7,
+            "FP": 2,
+            "FN": 0,
+            "TN": 1,
+            "precision": 0.7777777777777778,
+            "recall": 1.0,
+            "f1": 0.8750000000000001,
+            "false_positive_rate": 0.6666666666666666,
+            "cases": 10
+          },
+          "CWE-79": {
+            "TP": 8,
+            "FP": 0,
+            "FN": 0,
+            "TN": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "false_positive_rate": null,
+            "cases": 8
+          },
+          "CWE-89": {
+            "TP": 13,
+            "FP": 1,
+            "FN": 1,
+            "TN": 0,
+            "precision": 0.9285714285714286,
+            "recall": 0.9285714285714286,
+            "f1": 0.9285714285714286,
+            "false_positive_rate": 1.0,
+            "cases": 15
+          },
+          "CWE-90": {
+            "TP": 3,
+            "FP": 0,
+            "FN": 0,
+            "TN": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "false_positive_rate": null,
+            "cases": 3
+          }
+        }
+      }
+    }
+  },
+  "combined": {
+    "wall_clock_seconds": 4317.339,
+    "total_tokens": 2217725,
+    "total_findings": 283
+  }
+}

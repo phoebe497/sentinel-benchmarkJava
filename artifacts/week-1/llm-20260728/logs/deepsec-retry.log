@@ -1,0 +1,23 @@
+ Network sast-benchmark-deepsec-retry_router_only  Creating
+ Network sast-benchmark-deepsec-retry_router_only  Created
+[1mDirect process[0m project [1mowasp-benchmark[0m
+  Source: files-from:/run/raw/deepsec-retry-files.txt
+  Files: 1
+  Agent: pi (openai/gc/gemini-2.5-flash)
+  Root: /benchmark
+
+[1mScanning 1 file(s)…[0m
+  [2m0 candidate(s) across 1 file(s)[0m
+
+[1mBatch 1/1[0m: Processing batch 1/1 (1 files, 1 in flight)
+  [32m>[0m Investigating 1 file(s) with Pi (openai/gc/gemini-2.5-flash)
+  [2m  Pi turn 1 (investigate)[0m
+  [32m  Investigation complete (4.4s, 1 turns, 0 tool calls $0.000 5259 tokens)[0m
+  Batch 1/1 complete: 1 analyses, 0 findings (0 in flight, 1/1 done)
+
+  [2mProcessing complete: 1 analyses, 0 findings[0m
+[32mProcessing complete.[0m Run: [1m20260728091616-30e7a6974a89273d[0m
+  Analyses: 1
+  Findings: 0
+
+[32mNo findings.[0m

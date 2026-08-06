@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/OWASP-Benchmark/BenchmarkJava.git",
+  "commit": "79b9bd6177e07991a9c11dc19e457c840e229931",
+  "expected_results": {
+    "path": "expectedresults-1.2.csv",
+    "sha256": "f0311c850dea7f15125113f7cfdbd7ad612d7f5951c7331584f6981b6ae2d630",
+    "cases": 2740
+  }
+}

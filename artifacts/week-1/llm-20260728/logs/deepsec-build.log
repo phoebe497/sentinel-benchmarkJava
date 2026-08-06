@@ -1,0 +1,61 @@
+#1 [internal] load local bake definitions
+#1 reading from stdin 598B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.deepsec
+#2 transferring dockerfile: 903B 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/node:22-bookworm-slim
+#3 DONE 2.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/9] FROM docker.io/library/node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
+#5 resolve docker.io/library/node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 2.54MB 0.2s done
+#6 DONE 0.3s
+
+#7 [2/9] WORKDIR /opt/deepsec
+#7 CACHED
+
+#8 [6/9] RUN corepack enable     && corepack prepare pnpm@8.15.9 --activate     && pnpm install --frozen-lockfile     && pnpm -r build
+#8 CACHED
+
+#9 [7/9] COPY harness/configs/locked-entrypoint.sh /usr/local/bin/locked-entrypoint
+#9 CACHED
+
+#10 [4/9] COPY scanner-src/deepsec/package.json scanner-src/deepsec/pnpm-lock.yaml scanner-src/deepsec/pnpm-workspace.yaml scanner-src/deepsec/tsconfig.base.json ./
+#10 CACHED
+
+#11 [3/9] RUN apt-get update     && apt-get install -y --no-install-recommends iptables     && rm -rf /var/lib/apt/lists/*
+#11 CACHED
+
+#12 [5/9] COPY scanner-src/deepsec/packages ./packages
+#12 CACHED
+
+#13 [8/9] RUN chmod 0555 /usr/local/bin/locked-entrypoint
+#13 CACHED
+
+#14 [9/9] WORKDIR /work
+#14 CACHED
+
+#15 exporting to image
+#15 exporting layers done
+#15 exporting manifest sha256:f0b1ef96b7f3b9f0afd20b1e366bc6c0e7c8b33db6657ddc022311ccef2939d4 done
+#15 exporting config sha256:1f7b966728615698838b502ab5c75606b43719473396a46f1ca284b639d19fd7 done
+#15 exporting attestation manifest sha256:0906c740fb14c816f48c0b73c82ecb200425a654a982f8e865e2c24dea72b5c2 0.0s done
+#15 exporting manifest list sha256:1efaf069b64a66a9d648c7cabb639a318e291e6a061426619b8da66b1e35a1ff 0.0s done
+#15 naming to docker.io/library/sast-benchmark-deepsec:f75a168
+#15 naming to docker.io/library/sast-benchmark-deepsec:f75a168 done
+#15 unpacking to docker.io/library/sast-benchmark-deepsec:f75a168 0.0s done
+#15 DONE 0.2s
+
+#16 resolving provenance for metadata file
+#16 DONE 0.0s
+ sast-benchmark-deepsec:f75a168  Built

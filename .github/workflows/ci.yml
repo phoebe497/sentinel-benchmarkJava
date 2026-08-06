@@ -1,0 +1,48 @@
+name: CI and SAST
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pytest -q
+
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install "semgrep>=1.100,<2"
+      - name: Scan first 100 BenchmarkJava cases
+        run: >-
+          semgrep scan
+          --config p/security-audit
+          --metrics off
+          --sarif
+          --output semgrep.sarif
+          vendor/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00{001..100}.java
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep-benchmarkjava-first100

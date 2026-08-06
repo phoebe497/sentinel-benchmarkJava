@@ -1,0 +1,3 @@
+[submodule "vendor/BenchmarkJava"]
+	path = vendor/BenchmarkJava
+	url = https://github.com/OWASP-Benchmark/BenchmarkJava.git

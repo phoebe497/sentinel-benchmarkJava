@@ -3,7 +3,7 @@
 **Người thực hiện:** Nguyễn Như Yến Phương  
 **Ngày báo cáo:** 01/08/2026  
 **Dự án:** Project Sentinel - Chuẩn hóa kết quả quét và xây kho tri thức  
-**Live demo:** https://search-feature-kb-w2.streamlit.app/
+**Live demo (URL hiện tại):** https://sentinel-benchmarkjava.streamlit.app/
 
 ---
 
@@ -83,7 +83,7 @@ Semantic/vector search chưa được bật trong Week 2 vì SQLite FTS5 nhẹ, 
 
 Giao diện đã được deploy bằng Streamlit Community Cloud tại:
 
-**https://search-feature-kb-w2.streamlit.app/**
+**https://sentinel-benchmarkjava.streamlit.app/**
 
 ---
 

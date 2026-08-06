@@ -1,6 +1,6 @@
 # Sentinel BenchmarkJava
 
-Repository dùng chung cho tiến độ Week 1–6, với một phạm vi dữ liệu duy nhất: **100 test case đầu của OWASP BenchmarkJava**. WebGoat không thuộc active dataset của repo này.
+Đây là repository dùng chung để theo dõi công việc từ Week 1 đến Week 6. Toàn bộ phần đánh giá hiện tại sử dụng cùng một phạm vi: **100 test case đầu tiên của OWASP BenchmarkJava**. WebGoat không còn nằm trong tập dữ liệu đang sử dụng.
 
 ## Quick start
 
@@ -13,11 +13,13 @@ streamlit run app/streamlit_app.py
 python -m pytest -q
 ```
 
-Live demo Week 2 (legacy deployment): <https://search-feature-kb-w2.streamlit.app/>. Kiểm tra ngày 2026-08-06 cho thấy URL đang chuyển tới trang đăng nhập Streamlit, vì vậy chưa được tính là public mentor demo. Code mới đã sẵn sàng tại `app/streamlit_app.py` để repoint deployment sang repo này.
+**Live demo:** [sentinel-benchmarkjava.streamlit.app](https://sentinel-benchmarkjava.streamlit.app/)
 
-GitHub Code scanning: <https://github.com/phoebe497/sentinel-benchmarkJava/security/code-scanning> (89 Semgrep alerts từ first-100 scope).
+Ứng dụng đã được deploy từ repository này với entrypoint `app/streamlit_app.py`. Giao diện cho phép tìm kiếm findings theo CWE hoặc từ khóa, so sánh kết quả giữa ba scanner và truy ngược về artifact gốc.
 
-> BenchmarkJava chứa mã cố ý có lỗ hổng. Repo chỉ dùng source để đánh giá scanner; không deploy BenchmarkJava ra Internet.
+**GitHub Code scanning:** [89 Semgrep alerts trên phạm vi 100 file](https://github.com/phoebe497/sentinel-benchmarkJava/security/code-scanning).
+
+> BenchmarkJava chứa mã được cố ý viết có lỗ hổng. Repository chỉ dùng phần source này để đánh giá scanner; bản thân ứng dụng BenchmarkJava không được đưa lên Internet.
 
 ## Bản đồ repo trong 5 phút
 
@@ -26,7 +28,7 @@ GitHub Code scanning: <https://github.com/phoebe497/sentinel-benchmarkJava/secur
 | `src/` | Code chuẩn hóa, lập chỉ mục và tìm kiếm | Developer |
 | `app/` | Entrypoint Streamlit | Người demo |
 | `vendor/BenchmarkJava/` | Upstream benchmark được pin bằng Git submodule | Scanner |
-| `datasets/` | Manifest chọn mẫu và knowledge documents | Code/máy |
+| `datasets/` | Manifest chọn mẫu và tài liệu trong knowledge base | Code/máy |
 | `tests/` | Unit và integration tests | CI/reviewer |
 | `reports/week-N/` | Báo cáo tuần ngắn, đóng băng sau khi nộp | Mentor |
 | `artifacts/week-N/` | JSON/JSONL/log/metrics do máy sinh | Máy/reviewer sâu |
@@ -37,9 +39,9 @@ GitHub Code scanning: <https://github.com/phoebe497/sentinel-benchmarkJava/secur
 
 | Tuần | Quá trình | Kết quả chính |
 |---|---|---|
-| 1 | Scan 100 file đầu bằng OpenCodeReview, DeepSec và Semgrep | Metrics ground-truth và raw artifacts |
-| 2 | Chuẩn hóa findings, SQLite FTS5 và Streamlit | KB tìm kiếm BenchmarkJava-only |
-| 3 | Khởi tạo | Phạm vi chi tiết chờ task mentor |
+| 1 | Quét 100 file đầu bằng OpenCodeReview, DeepSec và Semgrep | Số liệu đối chiếu ground truth và artifact gốc |
+| 2 | Chuẩn hóa findings, lập chỉ mục SQLite FTS5 và xây dựng Streamlit | Knowledge base chỉ sử dụng BenchmarkJava, có live demo |
+| 3 | Đã tạo khung làm việc | Chờ chốt phạm vi chi tiết với mentor |
 | 4–6 | Chưa bắt đầu | Cập nhật theo từng tuần |
 
 Chi tiết: [`docs/repository-layout.md`](docs/repository-layout.md).

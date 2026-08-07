@@ -1,0 +1,5 @@
+{"analysis_group_id":"AG-73e483c9bd88535a","document_ids":["KB-003"],"query":"CWE-22 pathtraver"}
+{"analysis_group_id":"AG-1e0f56fa6b3ff960","document_ids":["KB-003"],"query":"CWE-22 pathtraver"}
+{"analysis_group_id":"AG-39daa50cbc6fe1f0","document_ids":[],"query":"CWE-328 hash"}
+{"analysis_group_id":"AG-263cf2eb94bac494","document_ids":[],"query":"CWE-501 trustbound"}
+{"analysis_group_id":"AG-44d460b6a4eb2684","document_ids":[],"query":"CWE-327 crypto"}

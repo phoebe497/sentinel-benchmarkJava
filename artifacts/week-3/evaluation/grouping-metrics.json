@@ -1,0 +1,15 @@
+{
+  "analysis_groups_week3": 99,
+  "covered_test_ids": 99,
+  "duplicate_assignments": 0,
+  "group_checksum": "sha256:bd5fc48c2966a7b50db7179d8dcfbc320a18c7b45d14fa898f34f1f6566f7a6c",
+  "grouping_deterministic": true,
+  "missing_reasons": {
+    "BenchmarkTest00069": "no_scanner_observation"
+  },
+  "missing_test_ids": [
+    "BenchmarkTest00069"
+  ],
+  "observations": 372,
+  "observations_assigned_once": true
+}

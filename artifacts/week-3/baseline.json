@@ -1,0 +1,24 @@
+{
+  "analysis_groups_week3": 99,
+  "canonical_groups_week2": 371,
+  "covered_test_ids": 99,
+  "duplicate_assignments": 0,
+  "generated_at": "2026-08-07T04:32:16.832194Z",
+  "group_checksum": "sha256:bd5fc48c2966a7b50db7179d8dcfbc320a18c7b45d14fa898f34f1f6566f7a6c",
+  "grouping_deterministic": true,
+  "missing_reasons": {
+    "BenchmarkTest00069": "no_scanner_observation"
+  },
+  "missing_test_ids": [
+    "BenchmarkTest00069"
+  ],
+  "observation_ids_unique": true,
+  "observations": 372,
+  "observations_assigned_once": true,
+  "scanner_counts": {
+    "Alibaba OpenCodeReview": 131,
+    "Semgrep security-audit": 89,
+    "Vercel DeepSec/Pi": 152
+  },
+  "schema_version": "1.0"
+}

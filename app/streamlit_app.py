@@ -205,9 +205,23 @@ st.markdown(
 )
 
 
+def _knowledge_schema_is_current() -> bool:
+    if not DB.exists():
+        return False
+    import sqlite3
+    try:
+        with sqlite3.connect(DB) as conn:
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(knowledge)").fetchall()}
+        return "category" in columns
+    except sqlite3.DatabaseError:
+        return False
+
+
 @st.cache_resource
 def prepare() -> dict:
     DB.parent.mkdir(parents=True, exist_ok=True)
+    if DB.exists() and not _knowledge_schema_is_current():
+        DB.unlink()
     return build(MANIFEST, DB, KB)
 
 
@@ -769,14 +783,26 @@ CATEGORY_ORDER = ("owasp-top-10", "scanner-docs", "vulnerability-example")
 
 
 def _knowledge_category_counts() -> dict[str, int]:
-    if not DB.exists():
-        return {key: 0 for key in CATEGORY_ORDER}
-    import sqlite3
-    with sqlite3.connect(DB) as conn:
-        rows = conn.execute("SELECT category, COUNT(*) FROM knowledge GROUP BY category").fetchall()
     counts = {key: 0 for key in CATEGORY_ORDER}
-    for category, count in rows:
-        counts[category or "owasp-top-10"] = count
+    if DB.exists():
+        import sqlite3
+        try:
+            with sqlite3.connect(DB) as conn:
+                rows = conn.execute("SELECT category, COUNT(*) FROM knowledge GROUP BY category").fetchall()
+            for category, count in rows:
+                counts[category or "owasp-top-10"] = count
+            return counts
+        except sqlite3.DatabaseError:
+            pass
+    if KB.exists():
+        for line in KB.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            counts[record.get("category") or "owasp-top-10"] = counts.get(record.get("category") or "owasp-top-10", 0) + 1
     return counts
 
 

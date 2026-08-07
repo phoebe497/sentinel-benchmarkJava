@@ -12,8 +12,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DB_SCHEMA = """
 CREATE TABLE IF NOT EXISTS findings (observation_id TEXT PRIMARY KEY, canonical_id TEXT, dataset TEXT, run_id TEXT, tool TEXT, severity TEXT, file_or_url TEXT, line_start INTEGER, line_end INTEGER, title TEXT, cwe TEXT, owasp TEXT, description TEXT, evidence TEXT, recommendation TEXT, confidence REAL, source_artifact TEXT);
 CREATE VIRTUAL TABLE IF NOT EXISTS findings_fts USING fts5(observation_id UNINDEXED, title, description, evidence, recommendation, cwe, owasp, file_or_url, content='findings', content_rowid='rowid');
-CREATE TABLE IF NOT EXISTS knowledge (document_id TEXT PRIMARY KEY, title TEXT, source TEXT, source_url TEXT, tags TEXT, content TEXT);
-CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(document_id UNINDEXED, title, source, tags, content, content='knowledge', content_rowid='rowid');
+DROP TABLE IF EXISTS knowledge_fts;
+DROP TABLE IF EXISTS knowledge;
+CREATE TABLE knowledge (document_id TEXT PRIMARY KEY, category TEXT, title TEXT, source TEXT, source_url TEXT, tags TEXT, content TEXT);
+CREATE VIRTUAL TABLE knowledge_fts USING fts5(document_id UNINDEXED, category, title, source, tags, content, content='knowledge', content_rowid='rowid');
 """
 
 def _stable(*parts: Any) -> str:
@@ -42,12 +44,24 @@ def build(manifest: Path, output: Path, kb_path: Path) -> dict[str, int]:
             conn.execute("INSERT OR REPLACE INTO findings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (obs, row["canonical_id"], row["dataset"], row["run_id"], row["tool"], row["severity"], row["file_or_url"], row["line_start"], row["line_end"], row["title"], json.dumps(row["cwe"], ensure_ascii=False), json.dumps(row["owasp"], ensure_ascii=False), row["description"], row["evidence"], row["recommendation"], row["confidence"], row["source_artifact"]))
             total += 1
     conn.execute("INSERT INTO findings_fts(rowid, observation_id, title, description, evidence, recommendation, cwe, owasp, file_or_url) SELECT rowid, observation_id, title, description, evidence, recommendation, cwe, owasp, file_or_url FROM findings")
-    conn.execute("DELETE FROM knowledge")
-    conn.execute("DELETE FROM knowledge_fts")
     kb_rows = [json.loads(line) for line in kb_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     for row in kb_rows:
-        conn.execute("INSERT OR REPLACE INTO knowledge VALUES (?,?,?,?,?,?)", (row["id"], row.get("title", ""), row.get("source", ""), row.get("source_url", ""), json.dumps(row.get("tags", []), ensure_ascii=False), row.get("content", "")))
-    conn.execute("INSERT INTO knowledge_fts(rowid, document_id, title, source, tags, content) SELECT rowid, document_id, title, source, tags, content FROM knowledge")
+        conn.execute(
+            "INSERT OR REPLACE INTO knowledge VALUES (?,?,?,?,?,?,?)",
+            (
+                row["id"],
+                row.get("category", "owasp-top-10"),
+                row.get("title", ""),
+                row.get("source", ""),
+                row.get("source_url", ""),
+                json.dumps(row.get("tags", []), ensure_ascii=False),
+                row.get("content", ""),
+            ),
+        )
+    conn.execute(
+        "INSERT INTO knowledge_fts(rowid, document_id, category, title, source, tags, content) "
+        "SELECT rowid, document_id, category, title, source, tags, content FROM knowledge"
+    )
     conn.commit(); conn.close()
     return {"findings": total, "knowledge": len(kb_rows)}
 

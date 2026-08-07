@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .pytest-tmp/
+.test-tmp/
+*.egg-info/
 .env
 .env.*
 !.env.example
@@ -15,3 +17,4 @@ artifacts/generated/
 artifacts/ci/
 *.db
 .scan-targets/
+preview.md

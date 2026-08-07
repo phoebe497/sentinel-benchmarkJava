@@ -8,7 +8,7 @@ from typing import Any, Iterable
 
 from .analysis.artifacts import list_runs, load_run
 from .analysis.grouping import load_groups
-from .search import search_index
+from .search import hybrid_search_index, search_index, semantic_search_index
 
 
 def decode_list(value: Any) -> list[str]:
@@ -56,8 +56,24 @@ def retrieve_knowledge(db_path: Path, group: dict[str, Any], limit: int = 3) -> 
     return search_index(db_path, f"{group['expected_cwe']} {group['category']}", "knowledge", limit)
 
 
-def search_knowledge(db_path: Path, query: str, limit: int = 5, min_score: float = 0.0) -> list[dict[str, Any]]:
-    return [row for row in search_index(db_path, query, "knowledge", limit) if float(row.get("rank") or 0) >= min_score]
+def search_knowledge(
+    db_path: Path,
+    query: str,
+    limit: int = 5,
+    min_score: float = 0.0,
+    mode: str = "keyword",
+) -> list[dict[str, Any]]:
+    if mode == "semantic":
+        rows = semantic_search_index(db_path, query, limit)
+    elif mode == "hybrid":
+        rows = hybrid_search_index(db_path, query, limit)
+    else:
+        rows = search_index(db_path, query, "knowledge", limit)
+        for position, row in enumerate(rows, start=1):
+            row.update({"retrieval_mode": "keyword_bm25", "position": position})
+    if mode == "keyword" or min_score <= 0:
+        return rows
+    return [row for row in rows if float(row.get("score") or 0) >= min_score]
 
 
 def retrieval_evaluation(db_path: Path, groups: Iterable[dict[str, Any]], top_k: int = 3) -> dict[str, Any]:

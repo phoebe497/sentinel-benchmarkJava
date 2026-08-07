@@ -2,7 +2,7 @@
 
 **Người thực hiện:** Nguyễn Như Yến Phương  
 **Ngày báo cáo:** 07/08/2026  
-**Dự án:** Project Sentinel — Phân tích kết quả quét và sinh báo cáo bảo mật  
+**Dự án:** Project Sentinel - Phân tích kết quả quét và sinh báo cáo bảo mật  
 **Phạm vi:** 100 test case đầu tiên của OWASP BenchmarkJava
 
 ---
@@ -52,8 +52,8 @@ Model **không tự gọi tool**. Thay vào đó, Python chủ động gọi cá
 | :--- | ---: |
 | Observations được đưa vào grouping | 372/372 |
 | Duplicate assignment | 0 |
-| FakeProvider — kiểm thử toàn bộ pipeline | 99/99 groups |
-| 9Router — real smoke test | 5/5 groups |
+| FakeProvider - kiểm thử toàn bộ pipeline | 99/99 groups |
+| 9Router - real smoke test | 5/5 groups |
 | Schema / Guard / evidence preservation | 100% / 100% / 100% |
 
 Các test bao phủ input rỗng, JSON không hợp lệ và retry, lỗi một group không làm dừng batch, citation/field bịa bị chặn, SSE response của 9Router và checksum artifact. UI cho phép chọn lỗ hổng theo tên CWE, xem evidence/KB, tạo report, hỏi đáp và tải JSONL.
@@ -62,10 +62,10 @@ Các test bao phủ input rỗng, JSON không hợp lệ và retry, lỗi một 
 
 ### 5. Deliverables và giới hạn
 
-- `src/sentinel_benchmark/analysis/` — grouping, prompt, provider, Guard, runner và evaluation.
-- `docs/prompts/week3-security-analysis-agent.md` — System Prompt và output contract.
-- `artifacts/week-3/runs/` — FakeProvider full run và 9Router real run có checksum.
-- `reports/week-3/week-3.md` — báo cáo tuần được sinh từ metrics thật.
-- `app/streamlit_app.py` — giao diện xem evidence, Agent report và Ask Sentinel.
+- `src/sentinel_benchmark/analysis/` - grouping, prompt, provider, Guard, runner và evaluation.
+- `docs/prompts/week3-security-analysis-agent.md` - System Prompt và output contract.
+- `artifacts/week-3/runs/` - FakeProvider full run và 9Router real run có checksum.
+- `reports/week-3/week-3.md` - báo cáo tuần được sinh từ metrics thật.
+- `app/streamlit_app.py` - giao diện xem evidence, Agent report và Ask Sentinel.
 
 Real LLM hiện mới được smoke test trên 5 groups; nội dung giải thích và khắc phục vẫn cần human review trước khi sử dụng trong môi trường thực tế.

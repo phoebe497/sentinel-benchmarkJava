@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "algorithm": "sha256",
+  "algorithm": "sha256-utf8-lf",
   "policy": "Submitted weekly reports are immutable; corrections must be dated appendices.",
   "files": {
-    "reports/week-1/week-1.md": "28e8a2293b890b09d6df2f1a43a48bcd66601d68a22948946f8629f893100f4e",
-    "reports/week-2/week-2.md": "b0c976e954134d964fb3c79cf436f18e3a33b34cabe13ac08a54aa266559c649"
+    "reports/week-1/week-1.md": "c826ef45e6bec8d6672e9db82c49caf527eeabd2daddff5146d152bb0b45e5bd",
+    "reports/week-2/week-2.md": "52427284e93f49d7a1f508c016db7f9761ded3ffc3762c8abd7ac65d560c7e3f"
   }
 }

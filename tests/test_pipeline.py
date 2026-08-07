@@ -40,7 +40,8 @@ def test_ground_truth_manifest() -> None:
 
 def test_submitted_reports_are_immutable() -> None:
     lock = json.loads((ROOT / "reports" / "locked.json").read_text(encoding="utf-8"))
-    assert lock["algorithm"] == "sha256"
+    assert lock["algorithm"] == "sha256-utf8-lf"
     for relative_path, expected in lock["files"].items():
-        actual = hashlib.sha256((ROOT / relative_path).read_bytes()).hexdigest()
+        content = (ROOT / relative_path).read_text(encoding="utf-8").replace("\r\n", "\n")
+        actual = hashlib.sha256(content.encode("utf-8")).hexdigest()
         assert actual == expected, f"submitted report changed: {relative_path}"

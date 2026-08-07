@@ -1,428 +1,292 @@
 from __future__ import annotations
 
 import json
+import os
+import re
+import subprocess
 import sqlite3
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 import streamlit as st
+from dotenv import load_dotenv
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SRC = REPO_ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+load_dotenv(ROOT / ".env")
 
-from sentinel_benchmark.agent_reports import (  # noqa: E402
-    REPORT_STATUSES,
-    generate_report,
-    reports_to_jsonl,
-    validate_report,
-)
-from sentinel_benchmark.indexer import build  # noqa: E402
-from sentinel_benchmark.workspace import (  # noqa: E402
-    filter_groups,
-    load_analysis_groups,
-    retrieval_evaluation,
-    retrieve_knowledge,
+from sentinel_benchmark.agent_reports import export_reports_jsonl
+from sentinel_benchmark.analysis.chat import answer_question, build_chat_payload
+from sentinel_benchmark.analysis.models import AnalysisGroup
+from sentinel_benchmark.analysis.providers import NineRouterProvider
+from sentinel_benchmark.analysis.taxonomy import cwe_name
+from sentinel_benchmark.indexer import build
+from sentinel_benchmark.workspace import (
+    available_runs, filter_groups, load_analysis_groups, load_observations,
+    load_run_artifact, load_week2_groups, search_knowledge,
 )
 
-DB = REPO_ROOT / "datasets" / "processed" / "sentinel.db"
-MANIFEST = REPO_ROOT / "configs" / "sources.json"
-KNOWLEDGE = REPO_ROOT / "datasets" / "knowledge" / "security-topics.jsonl"
-METRICS = REPO_ROOT / "artifacts" / "week-1" / "llm-20260728" / "results.json"
-SEMGREP_METRICS = REPO_ROOT / "artifacts" / "week-1" / "semgrep-20260806" / "results.json"
-PREDICTIONS = REPO_ROOT / "artifacts" / "week-1" / "semgrep-20260806" / "variants" / "security-audit" / "predictions.jsonl"
-PAGES = ["Overview", "Findings Explorer", "Agent Analysis", "Reports", "Evaluation"]
+DB = ROOT / "datasets/processed/sentinel.db"
+MANIFEST = ROOT / "configs/sources.json"
+KB = ROOT / "datasets/knowledge/security-topics.jsonl"
+PREDICTIONS = ROOT / "artifacts/week-1/semgrep-20260806/variants/security-audit/predictions.jsonl"
+WEEK3 = ROOT / "artifacts/week-3"
+READONLY = os.getenv("SENTINEL_UI_READONLY", "1") != "0"
 
 st.set_page_config(page_title="Sentinel Security Analysis Workspace", page_icon="🛡️", layout="wide")
-st.markdown(
-    """
-    <style>
-    .block-container {padding-top: 1.4rem; padding-bottom: 3rem; max-width: 1500px;}
-    [data-testid="stMetric"] {background: #f8fafc; border: 1px solid #e2e8f0; padding: .8rem; border-radius: .75rem;}
-    .pipeline-step {border: 1px solid #cbd5e1; background: #f8fafc; border-radius: .75rem; padding: .9rem .65rem; text-align: center; min-height: 76px;}
-    .eyebrow {font-size: .78rem; font-weight: 700; color: #2563eb; letter-spacing: .08em; text-transform: uppercase;}
-    .muted {color: #64748b; font-size: .9rem;}
-    .severity-critical {color:#991b1b;font-weight:700}.severity-high {color:#b91c1c;font-weight:700}
-    .severity-medium {color:#b45309;font-weight:700}.severity-low {color:#1d4ed8;font-weight:700}.severity-info {color:#475569;font-weight:700}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown("""<style>.block-container{max-width:1500px;padding-top:1.25rem}.badge{display:inline-block;padding:.15rem .55rem;border-radius:1rem;background:#d8ebe7;color:#0f5d57;font-weight:700}.mode{display:inline-block;padding:.18rem .6rem;border:1px solid #9bbdb7;border-radius:1rem;color:#315f59;font-size:.82rem}.guard{color:#0f766e;font-weight:700}.muted{color:#55706c}.pipeline{padding:.8rem;border:1px solid #b8cbc7;border-radius:.65rem;text-align:center;background:#fff}.context{padding:1rem 1.1rem;border:1px solid #c8d9d5;border-left:4px solid #0f766e;border-radius:.5rem;background:#fff;margin:.4rem 0 1rem}</style>""", unsafe_allow_html=True)
 
 
 @st.cache_resource
-def ensure_index() -> dict[str, int]:
+def prepare() -> dict:
     DB.parent.mkdir(parents=True, exist_ok=True)
-    return build(MANIFEST, DB, KNOWLEDGE)
+    return build(MANIFEST, DB, KB)
 
 
 @st.cache_data
-def index_stats() -> dict:
-    with sqlite3.connect(DB) as conn:
-        return {
-            "observations": conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0],
-            "knowledge": conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0],
-            "tools": conn.execute("SELECT tool, COUNT(*) FROM findings GROUP BY tool ORDER BY COUNT(*) DESC").fetchall(),
-            "severities": conn.execute("SELECT severity, COUNT(*) FROM findings GROUP BY severity ORDER BY COUNT(*) DESC").fetchall(),
-        }
+def data():
+    return load_observations(DB), load_week2_groups(DB), load_analysis_groups(DB, PREDICTIONS)
 
 
-@st.cache_data
-def analysis_groups() -> list[dict]:
-    return load_analysis_groups(DB, PREDICTIONS)
+def selected_run() -> dict | None:
+    runs = available_runs(WEEK3)
+    if not runs: return None
+    preferred = st.session_state.get("preferred_run_id")
+    default = next((row for row in runs if row.get("run_id") == preferred), None) or next((row for row in runs if row.get("provider") == "nine_router" and row.get("status") == "successful"), None) or next((row for row in runs if row.get("provider") == "fake" and row.get("status") == "successful"), runs[0])
+    labels = {f"{row['run_id']} · {row['provider']} · {row['status']}": row for row in runs}
+    label_list = list(labels)
+    index = list(labels.values()).index(default)
+    return labels[st.selectbox("Run artifact", label_list, index=index)]
 
 
-@st.cache_data
-def scanner_metrics() -> list[dict]:
-    llm = json.loads(METRICS.read_text(encoding="utf-8"))
-    semgrep = json.loads(SEMGREP_METRICS.read_text(encoding="utf-8"))
-    rows = []
-    for label, values in (
-        ("OpenCodeReview", llm["scanners"]["open_code_review"]),
-        ("DeepSec/Pi", llm["scanners"]["deepsec"]),
-    ):
-        overall = values["metrics"]["overall"]
-        rows.append({"Scanner": label, **{key: overall[key] for key in ("TP", "FP", "FN", "TN", "precision", "recall", "f1")}})
-    overall = semgrep["variants"]["security-audit"]["metrics"]["metrics"]["overall"]
-    rows.append({"Scanner": "Semgrep security-audit", **{key: overall[key] for key in ("TP", "FP", "FN", "TN", "precision", "recall", "f1")}})
-    return rows
-
-
-def initialize_state() -> None:
-    st.session_state.setdefault("selected_group", None)
-    st.session_state.setdefault("batch", [])
-    st.session_state.setdefault("agent_reports", [])
-    st.session_state.setdefault("agent_run_id", f"UI-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}")
-
-
-def group_by_id(group_id: str | None) -> dict | None:
-    return next((group for group in analysis_groups() if group["canonical_id"] == group_id), None)
-
-
-def latest_report(group_id: str) -> dict | None:
-    return next((report for report in reversed(st.session_state.agent_reports) if report["canonical_id"] == group_id), None)
-
-
-def analyze(group: dict, regenerate: bool = False) -> dict:
-    kb = retrieve_knowledge(DB, group, 3)
-    previous = latest_report(group["canonical_id"])
-    report = generate_report(
-        group,
-        kb,
-        run_id=st.session_state.agent_run_id,
-        regenerate_from=previous["report_id"] if regenerate and previous else None,
+def nine_router_provider() -> NineRouterProvider:
+    return NineRouterProvider(
+        base_url=os.getenv("NINE_ROUTER_BASE_URL", "http://127.0.0.1:20128/v1"),
+        model=os.getenv("NINE_ROUTER_MODEL", ""),
+        api_key=os.getenv("NINE_ROUTER_API_KEY", ""),
+        timeout=float(os.getenv("NINE_ROUTER_TIMEOUT_SECONDS", "60")),
+        max_retries=int(os.getenv("NINE_ROUTER_MAX_RETRIES", "1")),
     )
-    st.session_state.agent_reports.append(report)
-    st.session_state.selected_group = group["canonical_id"]
-    return report
 
 
-def update_status(report_id: str, status: str) -> None:
-    for report in st.session_state.agent_reports:
-        if report["report_id"] == report_id:
-            report["review_status"] = status
-            report["reviewed_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-            return
-
-
-def severity_badge(severity: str) -> str:
-    value = severity.lower()
-    return f'<span class="severity-{value}">{value.upper()}</span>'
-
-
-def group_label(group: dict) -> str:
-    return f"{group['cwe']} · {group['test_id']} · {len(group['tools'])} scanner(s)"
-
-
-def render_report_card(report: dict, *, controls: bool = True) -> None:
-    errors = validate_report(report)
-    with st.container(border=True):
-        left, right = st.columns([5, 1])
-        left.markdown(f"### {report['title']} · `{report['cwe']}`")
-        right.markdown(severity_badge(report["severity"]), unsafe_allow_html=True)
-        v1, v2, v3 = st.columns(3)
-        v1.metric("Verdict", report["verdict"])
-        v2.metric("Confidence", f"{report['confidence']:.2f}")
-        v3.metric("Review", report["review_status"])
-        if errors:
-            st.error("JSON contract chưa hợp lệ: " + ", ".join(errors))
-        st.markdown("**Explanation**")
+def report_card(report: dict) -> None:
+    name = report.get("vulnerability_name") or cwe_name(report["expected_cwe"], report.get("category", ""))
+    with st.expander(f"{report['expected_cwe']} — {name} · {report['severity_assessment'].upper()} · {report['benchmark_test_id']}"):
+        st.caption(f"{report['analysis_group_id']} · {report['grouping_mode']} · {report['provider']} / {report['model']}")
         st.write(report["explanation"])
+        left, right = st.columns(2)
+        left.markdown("**Verification**"); left.write(report["verification_steps"])
+        right.markdown("**Remediation**"); right.write(report["remediation"])
+        if report["limitations"]:
+            with st.expander("Phạm vi và hạn chế của phân tích"):
+                st.write(report["limitations"])
         st.markdown("**Evidence**")
-        for item in report["evidence"][:6]:
-            st.caption(f"{item['location']} · {item['tool']} · {item['observation_id']}")
-            if item["excerpt"]:
-                st.code(item["excerpt"], language=None)
-        if len(report["evidence"]) > 6:
-            st.caption(f"Còn {len(report['evidence']) - 6} observation(s) trong JSON report.")
-        c1, c2 = st.columns(2)
-        c1.markdown("**Verification**")
-        c1.write(report["verification"])
-        c2.markdown("**Remediation**")
-        c2.write(report["remediation"])
-        st.markdown("**Sources**")
-        st.code(
-            "KB: " + (", ".join(report["sources"]["kb_document_ids"]) or "none") + "\n"
-            "Observations: " + ", ".join(report["sources"]["observation_ids"]),
-            language=None,
-        )
-        st.caption(
-            f"Model: {report['model']} · Prompt: {report['prompt_version']} · "
-            f"Run: {report['run_id']} · Created: {report['created_at']}"
-        )
-        if controls:
-            a, b, c, d = st.columns(4)
-            if a.button("Approve", key=f"approve-{report['report_id']}", width="stretch"):
-                update_status(report["report_id"], "Approved")
-                st.rerun()
-            if b.button("Needs review", key=f"review-{report['report_id']}", width="stretch"):
-                update_status(report["report_id"], "Needs review")
-                st.rerun()
-            if c.button("Reject", key=f"reject-{report['report_id']}", width="stretch"):
-                update_status(report["report_id"], "Rejected")
-                st.rerun()
-            d.download_button(
-                "Export JSONL",
-                reports_to_jsonl([report]),
-                file_name=f"{report['report_id']}.jsonl",
-                mime="application/x-ndjson",
-                key=f"export-{report['report_id']}",
-                width="stretch",
-            )
+        for evidence in report["evidence"]:
+            st.caption(f"{evidence['tool']} · {evidence['observation_id']} · {evidence['file_or_url']}:{evidence.get('line_start') or '?'}")
+        guard_text = "Evidence Guard: PASS" if report["guard"]["passed"] else "Evidence Guard: FAIL"
+        st.markdown(f'<span class="guard">{guard_text}</span>', unsafe_allow_html=True)
+        st.caption(f"Confidence {report['analysis_confidence']:.2f} · Prompt {report['prompt_sha256']} · KB {', '.join(report['sources']['kb_document_ids']) or 'none'}")
 
 
 try:
-    with st.spinner("Preparing the analysis workspace..."):
-        ensure_index()
+    prepare(); observations, week2_groups, groups = data()
 except Exception as exc:
-    st.error("Không thể build index từ artifacts. Kiểm tra deployment logs và source manifest.")
-    st.exception(exc)
-    st.stop()
+    st.error("Không thể tải dữ liệu Security Analysis Workspace."); st.exception(exc); st.stop()
 
-initialize_state()
-groups = analysis_groups()
-stats = index_stats()
 
-st.sidebar.markdown("## 🛡️ Sentinel")
-st.sidebar.caption("Security Analysis Workspace")
-page = st.sidebar.radio("Workspace", PAGES, label_visibility="collapsed")
-st.sidebar.divider()
-st.sidebar.metric("Selected batch", len(st.session_state.batch))
-st.sidebar.metric("Agent reports", len(st.session_state.agent_reports))
-st.sidebar.caption("Week 2 built the knowledge layer. Week 3 turns it into grounded, reviewable security reports.")
+def overview() -> None:
+    st.title("Week 3 · Security Analysis Agent")
+    st.write("Agent đọc kết quả của ba scanner, hợp nhất cảnh báo liên quan, bổ sung tri thức bảo mật và tạo báo cáo JSONL có bằng chứng truy vết.")
+    baseline = json.loads((WEEK3 / "baseline.json").read_text(encoding="utf-8")) if (WEEK3 / "baseline.json").exists() else {}
+    cols = st.columns(5)
+    for col, label, value in zip(cols, ["Benchmark cases", "Observations", "Week 2 canonical", "Week 3 analysis", "KB documents"], [100, len(observations), len(week2_groups), len(groups), 12]): col.metric(label, value)
+    st.subheader("Luồng phân tích")
+    pipeline = st.columns(6)
+    for col, label in zip(pipeline, ["Scanner outputs", "Normalize", "Group alerts", "Retrieve KB", "LLM analysis", "JSONL report"]): col.markdown(f'<div class="pipeline">{label}</div>', unsafe_allow_html=True)
+    st.subheader("Nguồn cảnh báo")
+    scanner_columns = st.columns(3)
+    for column, (tool, count) in zip(scanner_columns, baseline.get("scanner_counts", {}).items()):
+        column.metric(tool, count)
+    metrics_path = WEEK3 / "evaluation/agent-metrics.json"
+    if metrics_path.exists():
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        st.subheader("Kết quả chạy Agent")
+        result_columns = st.columns(4)
+        result_columns[0].metric("FakeProvider", f"{metrics['fake']['successful']}/{metrics['fake']['requested']}")
+        result_columns[1].metric("9Router smoke test", f"{metrics['real']['successful']}/{metrics['real']['requested']}")
+        result_columns[2].metric("Guard pass", f"{metrics['real']['guard_pass_rate']:.0%}")
+        result_columns[3].metric("Evidence preserved", f"{metrics['real']['evidence_reference_rate']:.0%}")
 
-if page == "Overview":
-    st.markdown('<div class="eyebrow">Week 1 → Week 3</div>', unsafe_allow_html=True)
-    st.title("Security Analysis Workspace")
-    st.write("Từ scanner output đến báo cáo bảo mật có evidence, knowledge source và bước human review rõ ràng.")
 
-    labels = ["Scanner outputs", "Normalize", "Deduplicate", "Retrieve KB", "Agent", "JSONL report"]
-    pipeline = st.columns(len(labels))
-    for column, label in zip(pipeline, labels):
-        column.markdown(f'<div class="pipeline-step"><strong>{label}</strong></div>', unsafe_allow_html=True)
-
-    st.subheader("Dataset snapshot")
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Benchmark test cases", "100")
-    m2.metric("Benchmark observations", f"{stats['observations']:,}")
-    m3.metric("Canonical analysis groups", f"{len(groups):,}")
-    m4, m5, m6 = st.columns(3)
-    m4.metric("WebGoat observations", "121", help="Historical Week 2 snapshot; not part of the active BenchmarkJava index.")
-    m5.metric("KB documents", stats["knowledge"])
-    m6.metric("Agent reports this session", len(st.session_state.agent_reports))
-
-    st.info("WebGoat được hiển thị để kể lại lịch sử Week 2, nhưng không được đưa trở lại active dataset, Findings Explorer hoặc Agent analysis của repo BenchmarkJava này.")
-    st.markdown("### Cách demo trong 3 phút")
-    st.markdown(
-        "1. Mở **Findings Explorer** và chọn một canonical group.\n"
-        "2. Xem observations từ nhiều scanner và thêm group vào batch.\n"
-        "3. Sang **Agent Analysis** để xem KB được retrieve và tạo report có cấu trúc.\n"
-        "4. Sang **Reports** để review và tải JSONL.\n"
-        "5. Dùng **Evaluation** để phân biệt scanner, retrieval và Agent evaluation."
-    )
-
-elif page == "Findings Explorer":
-    st.markdown('<div class="eyebrow">Week 2 knowledge layer</div>', unsafe_allow_html=True)
+def findings() -> None:
     st.title("Findings Explorer")
-    st.caption("Mặc định hiển thị theo canonical analysis group; observations gốc luôn được giữ để truy vết.")
-    f1, f2, f3, f4 = st.columns([2.3, 1, 1.4, 1.2])
-    query = f1.text_input("Search", placeholder="CWE-89, SQL Injection, BenchmarkTest00008...")
-    severity = f2.selectbox("Severity", ["all", "critical", "high", "medium", "low", "info"])
-    tools = sorted({tool for group in groups for tool in group["tools"]})
-    tool = f3.selectbox("Detected by", ["all", *tools])
-    truth = f4.selectbox("Ground truth", ["all", "vulnerable", "not vulnerable"])
-    visible = filter_groups(groups, query, severity, tool, truth)
-    st.write(f"**{len(visible)} group(s)** · {sum(group['observation_count'] for group in visible)} observation(s)")
+    observations_tab, canonical_tab, analysis_tab, kb_tab = st.tabs(["Observations", "Week 2 canonical groups", "Week 3 analysis groups", "Knowledge Base"])
+    with observations_tab:
+        st.caption("Mỗi dòng là một cảnh báo gốc từ scanner, giữ nguyên provenance để truy vết.")
+        st.dataframe(observations, hide_index=True, width="stretch")
+    with canonical_tab:
+        st.caption("Nhóm canonical của Week 2 dùng để giảm trùng lặp ở tầng dữ liệu.")
+        st.write(f"{len(week2_groups)} canonical groups"); st.dataframe([{k: row[k] for k in ("canonical_id", "observation_count", "tools")} for row in week2_groups], hide_index=True, width="stretch")
+    with analysis_tab:
+        q = st.text_input("Search analysis groups", placeholder="CWE-89 or BenchmarkTest00008")
+        tool = st.selectbox("Scanner", ["all", *sorted({tool for group in groups for tool in group["source_tools"]})])
+        visible = filter_groups(groups, q, tool=tool)
+        st.write(f"{len(visible)} analysis groups")
+        for group in visible[:50]:
+            with st.expander(f"{group['expected_cwe']} — {cwe_name(group['expected_cwe'], group['category'])} · {group['benchmark_test_id']}"):
+                st.markdown('<span class="badge">benchmark_assisted</span>', unsafe_allow_html=True)
+                st.write("Scanners: " + ", ".join(group["source_tools"])); st.write("Grouping: " + ", ".join(group["grouping_reason"]))
+                for item in group["evidence_items"]: st.caption(f"{item['tool']} · {item['observation_id']} · {item['file_or_url']}:{item.get('line_start') or '?'}")
+    with kb_tab:
+        query = st.text_input("Keyword search", value="CWE-89")
+        top_k = st.slider("Top K", 1, 20, 5)
+        st.caption("Tìm kiếm keyword trên 12 tài liệu hướng dẫn bảo mật của Week 2.")
+        for row in search_knowledge(DB, query, top_k):
+            with st.expander(f"{row['title']} · {row['document_id']} · {row.get('rank', 0):.3f}"):
+                st.write(row["content"]); st.caption(row.get("source", ""))
 
-    for group in visible[:50]:
-        with st.container(border=True):
-            header, badge = st.columns([5, 1])
-            header.markdown(f"### {group['cwe']} · {group['title']}")
-            badge.markdown(severity_badge(group["severity"]), unsafe_allow_html=True)
-            st.code(group["locations"][0], language=None)
-            st.caption(
-                f"Detected by: {', '.join(group['tools'])} · "
-                f"Ground truth: {'Vulnerable' if group['ground_truth'] else 'Not vulnerable'} · "
-                f"Observations: {group['observation_count']}"
-            )
-            a, b, c = st.columns(3)
-            if a.button("View evidence", key=f"evidence-{group['canonical_id']}", width="stretch"):
-                st.session_state.selected_group = group["canonical_id"]
-            if b.button("Analyze with Agent", key=f"analyze-{group['canonical_id']}", type="primary", width="stretch"):
-                analyze(group)
-                st.success("Report đã được tạo. Mở Agent Analysis hoặc Reports để review.")
-            in_batch = group["canonical_id"] in st.session_state.batch
-            if c.button("Remove from batch" if in_batch else "Add to batch", key=f"batch-{group['canonical_id']}", width="stretch"):
-                if in_batch:
-                    st.session_state.batch.remove(group["canonical_id"])
-                else:
-                    st.session_state.batch.append(group["canonical_id"])
-                st.rerun()
-            if st.session_state.selected_group == group["canonical_id"]:
-                with st.expander("Evidence and grouped observations", expanded=True):
-                    for row in group["observations"]:
-                        st.markdown(f"**{row['tool']}** · `{row['observation_id']}`")
-                        st.caption(f"{Path(str(row['file_or_url'])).name}:{row.get('line_start') or '?'}")
-                        st.code(str(row.get("evidence") or row.get("description") or "No evidence")[:1600], language=None)
-    if len(visible) > 50:
-        st.info("Đang hiển thị 50 groups đầu tiên. Hãy dùng search/filter để thu hẹp kết quả.")
 
-elif page == "Agent Analysis":
-    st.markdown('<div class="eyebrow">Week 3 main workspace</div>', unsafe_allow_html=True)
+def agent_analysis() -> None:
     st.title("Agent Analysis")
-    st.warning("MVP hiện dùng `grounded-template-v1` để kiểm thử contract, evidence flow, review và JSONL export. Chưa có external LLM call; khi tích hợp model, contract và UI này được giữ nguyên.")
+    st.write("Chọn một nhóm lỗ hổng để xem bằng chứng, tạo báo cáo và hỏi đáp với Sentinel.")
+    mode_text = "Public · baked artifacts" if READONLY else "Local · 9Router enabled"
+    st.markdown(f'<span class="mode">{mode_text}</span>', unsafe_allow_html=True)
+    run = selected_run()
+    artifact = load_run_artifact(Path(run["run_dir"])) if run else {"state": "empty", "reports": []}
+    if artifact.get("state") == "corrupt": st.error("Corrupt artifact: " + ", ".join(artifact["checksum_failures"])); return
+    group_labels = {f"{group['expected_cwe']} — {cwe_name(group['expected_cwe'], group['category'])} · {group['benchmark_test_id']}": group for group in groups}
+    selected_label = st.selectbox("Vulnerability analysis group", list(group_labels))
+    selected_group = group_labels[selected_label]
+    selected_name = cwe_name(selected_group["expected_cwe"], selected_group["category"])
+    st.markdown(f'<div class="context"><strong>{selected_group["expected_cwe"]} — {selected_name}</strong><br>{selected_group["benchmark_test_id"]} · {len(selected_group["observation_ids"])} scanner observations · {len(selected_group["source_tools"])} scanner(s)</div>', unsafe_allow_html=True)
+    matching_reports = [report for report in artifact.get("reports", []) if report["analysis_group_id"] == selected_group["analysis_group_id"]]
+    report = matching_reports[-1] if matching_reports else None
 
-    options = {group_label(group): group["canonical_id"] for group in groups}
-    labels = list(options)
-    selected_index = 0
-    if st.session_state.selected_group in options.values():
-        selected_index = list(options.values()).index(st.session_state.selected_group)
-    selected_label = st.selectbox("Canonical group", labels, index=selected_index)
-    st.session_state.selected_group = options[selected_label]
-    selected = group_by_id(st.session_state.selected_group)
-    kb_hits = retrieve_knowledge(DB, selected, 3) if selected else []
+    evidence_tab, report_tab, chat_tab = st.tabs(["Scanner evidence & KB", "Create / view report", "Ask Sentinel"])
+    with evidence_tab:
+        st.markdown(f"<span class='badge'>{selected_group['grouping_mode']}</span>", unsafe_allow_html=True)
+        st.write("Detected by: " + ", ".join(selected_group["source_tools"]))
+        for item in selected_group["evidence_items"]:
+            with st.expander(f"{item['tool']} · {item['observation_id']}"):
+                st.caption(f"{item['file_or_url']}:{item.get('line_start') or '?'}")
+                st.code(item.get("excerpt") or "No scanner excerpt", language=None)
+        st.markdown("#### Retrieved knowledge")
+        for row in search_knowledge(DB, f"{selected_group['expected_cwe']} {selected_group['category']}", 3):
+            st.markdown(f"**{row['title']}** · `{row['document_id']}`")
+            st.write(row["content"])
 
-    a, b, c = st.columns([1.05, 1.05, 1.25])
-    with a:
-        st.subheader("Finding context")
-        if selected:
-            st.markdown(f"**{selected['cwe']} · {selected['title']}**")
-            st.code("\n".join(selected["locations"][:6]), language=None)
-            st.caption(f"Ground truth: {'Vulnerable' if selected['ground_truth'] else 'Not vulnerable'}")
-            st.write("Detected by: " + ", ".join(selected["tools"]))
-            st.write(f"Grouped observations: {selected['observation_count']}")
-            for row in selected["observations"][:4]:
-                with st.expander(f"{row['tool']} · {row['observation_id']}"):
-                    st.code(str(row.get("evidence") or row.get("description") or "")[:1400], language=None)
-    with b:
-        st.subheader("Retrieved knowledge")
-        if not kb_hits:
-            st.info("Không tìm thấy KB document phù hợp.")
-        for doc in kb_hits:
-            with st.container(border=True):
-                st.markdown(f"**{doc['title']}** · `{doc['document_id']}`")
-                st.write(doc["content"])
-                st.caption(f"{doc.get('source') or 'No source'} · retrieval score {doc.get('rank', 0):.3f}")
-    with c:
-        st.subheader("Agent report")
-        report = latest_report(selected["canonical_id"]) if selected else None
+    with report_tab:
         if report:
-            render_report_card(report, controls=False)
+            report_card(report)
+            st.download_button("Export selected report JSONL", export_reports_jsonl([report]), f"{report['report_id']}.jsonl", "application/x-ndjson", width="stretch")
         else:
-            st.info("Chọn Analyze selected group để tạo structured report.")
+            st.caption("Chưa có report trong run đang chọn cho analysis group này.")
+        if not READONLY:
+            provider_name = st.selectbox("Report provider", ["fake", "nine_router"], help="nine_router có thể dùng quota/cost của model đã cấu hình.")
+            tag_default = f"ui-{selected_group['benchmark_test_id'].lower()}"
+            command = [sys.executable, str(ROOT / "scripts/analyze.py"), "run", "--provider", provider_name, "--group-id", selected_group["analysis_group_id"], "--limit", "1", "--tag", tag_default]
+            st.code(" ".join(command), language="powershell")
+            confirmed = st.checkbox("Tôi xác nhận group, provider và khả năng phát sinh quota/cost.", key=f"confirm-{selected_group['analysis_group_id']}-{provider_name}")
+            if st.button("Generate structured report", type="primary", disabled=not confirmed, width="stretch"):
+                with st.spinner("Running one-shot analysis through the canonical CLI..."):
+                    completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=300, check=False)
+                if completed.returncode:
+                    st.error("Analysis failed. Secret/header values are never shown.")
+                    st.code(completed.stderr[-2000:], language=None)
+                else:
+                    st.toast("Report artifact đã được tạo và kiểm tra checksum.", icon="✅")
+                    try:
+                        created = json.loads(completed.stdout)
+                        st.session_state["preferred_run_id"] = Path(created["run_dir"]).name
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+                    st.cache_data.clear(); st.rerun()
 
-    x1, x2, x3, x4 = st.columns(4)
-    if x1.button("Analyze selected group", type="primary", width="stretch", disabled=selected is None):
-        analyze(selected)
-        st.rerun()
-    if x2.button("Analyze batch", width="stretch", disabled=not st.session_state.batch):
-        for group_id in list(st.session_state.batch):
-            group = group_by_id(group_id)
-            if group:
-                analyze(group)
-        st.rerun()
-    if x3.button("Regenerate", width="stretch", disabled=selected is None or latest_report(selected["canonical_id"]) is None):
-        analyze(selected, regenerate=True)
-        st.rerun()
-    current = latest_report(selected["canonical_id"]) if selected else None
-    x4.download_button(
-        "Export JSONL",
-        reports_to_jsonl([current]) if current else "",
-        file_name=f"{current['report_id']}.jsonl" if current else "agent-report.jsonl",
-        mime="application/x-ndjson",
-        disabled=current is None,
-        width="stretch",
-    )
+    with chat_tab:
+        chat_key = f"chat-{selected_group['analysis_group_id']}"
+        st.session_state.setdefault(chat_key, [])
+        chat_provider = st.selectbox("Answer mode", ["offline_artifact"] if READONLY else ["offline_artifact", "nine_router"], help="Offline mode summarizes only baked evidence/report; nine_router performs a new grounded response.")
+        st.caption("Câu trả lời chỉ được trích dẫn observation, tài liệu KB và report đang có của nhóm lỗ hổng.")
+        for message in st.session_state[chat_key]:
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
+                if message.get("citations"): st.caption("Sources: " + ", ".join(message["citations"]))
+                if message.get("metadata"):
+                    source = message["metadata"]
+                    fallback = f" · fallback from {source['fallback_from']}" if source.get("fallback_from") else ""
+                    st.caption(f"Answer source: {source.get('provider')} / {source.get('model')}{fallback}")
+        st.markdown(f"**Câu hỏi gợi ý · {selected_group['expected_cwe']} — {selected_name}**")
+        suggest_1, suggest_2, suggest_3 = st.columns(3)
+        suggested_question = None
+        if suggest_1.button(f"{selected_group['expected_cwe']} là gì?", key=f"summary-{selected_group['analysis_group_id']}", width="stretch"):
+            suggested_question = f"Giải thích lỗ hổng {selected_group['expected_cwe']} — {selected_name} trong {selected_group['benchmark_test_id']} bằng ngôn ngữ đơn giản và chỉ ra bằng chứng scanner liên quan."
+        if suggest_2.button(f"Kiểm tra {selected_group['expected_cwe']}", key=f"verify-{selected_group['analysis_group_id']}", width="stretch"):
+            suggested_question = f"Đưa ra các bước xác minh an toàn lỗ hổng {selected_group['expected_cwe']} — {selected_name} tại {selected_group['benchmark_test_id']} và trích dẫn observation liên quan."
+        if suggest_3.button(f"Khắc phục {selected_group['expected_cwe']}", key=f"remediate-{selected_group['analysis_group_id']}", width="stretch"):
+            suggested_question = f"Nên khắc phục lỗ hổng {selected_group['expected_cwe']} — {selected_name} tại {selected_group['benchmark_test_id']} như thế nào dựa trên KB và report đã có?"
+        question = st.chat_input("Hỏi về cách xác minh, impact, evidence hoặc remediation...", key=f"question-{selected_group['analysis_group_id']}") or suggested_question
+        if question:
+            st.session_state[chat_key].append({"role": "user", "content": question})
+            chat_group = selected_group
+            requested = re.search(r"CWE-\d+", question, re.IGNORECASE)
+            if requested and requested.group(0).upper() != selected_group["expected_cwe"]:
+                requested_cwe = requested.group(0).upper()
+                chat_group = next((candidate for candidate in groups if candidate["expected_cwe"] == requested_cwe), selected_group)
+            chat_report = next((candidate for candidate in reversed(artifact.get("reports", [])) if candidate["analysis_group_id"] == chat_group["analysis_group_id"]), None)
+            knowledge = search_knowledge(DB, f"{chat_group['expected_cwe']} {chat_group['category']}", 3)
+            payload = build_chat_payload(question=question, group=AnalysisGroup.model_validate(chat_group), knowledge=knowledge, report=chat_report)
+            try:
+                active_provider = nine_router_provider() if chat_provider == "nine_router" else None
+                answer, metadata = answer_question(provider=active_provider, payload=payload, fallback_on_error=True)
+                content = answer.answer
+                if answer.verification_steps: content += "\n\nVerification:\n- " + "\n- ".join(answer.verification_steps)
+                if answer.remediation: content += "\n\nRemediation:\n- " + "\n- ".join(answer.remediation)
+                if answer.limitations: content += "\n\nLimitations:\n- " + "\n- ".join(answer.limitations)
+                st.session_state[chat_key].append({"role": "assistant", "content": content, "citations": answer.citations, "metadata": metadata})
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Grounded chat failed: {exc}")
+        transcript = json.dumps(st.session_state[chat_key], ensure_ascii=False, indent=2)
+        st.download_button("Export chat transcript", transcript, f"{selected_group['analysis_group_id']}-chat.json", "application/json", disabled=not st.session_state[chat_key])
 
-elif page == "Reports":
-    st.markdown('<div class="eyebrow">Human review queue</div>', unsafe_allow_html=True)
+
+def reports_page() -> None:
     st.title("Reports")
-    reports = st.session_state.agent_reports
-    if not reports:
-        st.info("Chưa có Agent report. Tạo report từ Findings Explorer hoặc Agent Analysis.")
-    else:
-        r1, r2, r3, r4 = st.columns(4)
-        severity = r1.selectbox("Severity", ["all", "critical", "high", "medium", "low", "info"], key="report-severity")
-        cwes = sorted({report["cwe"] for report in reports})
-        cwe = r2.selectbox("CWE", ["all", *cwes])
-        status = r3.selectbox("Approval status", ["all", *REPORT_STATUSES])
-        minimum = r4.slider("Min confidence", 0.0, 1.0, 0.0, 0.05)
-        visible_reports = [
-            report for report in reports
-            if (severity == "all" or report["severity"] == severity)
-            and (cwe == "all" or report["cwe"] == cwe)
-            and (status == "all" or report["review_status"] == status)
-            and report["confidence"] >= minimum
-        ]
-        valid = sum(not validate_report(report) for report in visible_reports)
-        h1, h2, h3 = st.columns(3)
-        h1.metric("Visible reports", len(visible_reports))
-        h2.metric("JSON valid", f"{valid}/{len(visible_reports)}")
-        h3.download_button(
-            "Download all JSONL",
-            reports_to_jsonl(visible_reports) if visible_reports else "",
-            file_name="sentinel-agent-reports.jsonl",
-            mime="application/x-ndjson",
-            disabled=not visible_reports,
-            width="stretch",
-        )
-        for report in reversed(visible_reports):
-            render_report_card(report)
-        with st.expander("Validated JSON preview"):
-            st.json(visible_reports)
+    run = selected_run()
+    if not run: st.caption("Chưa có report artifact để hiển thị."); return
+    artifact = load_run_artifact(Path(run["run_dir"]))
+    if artifact["state"] != "ready": st.error("Checksum mismatch"); return
+    reports = artifact["reports"]
+    st.download_button("Download JSONL", export_reports_jsonl(reports) if reports else "", "sentinel-week3-reports.jsonl", "application/x-ndjson", disabled=not reports)
+    for report in reports: report_card(report)
 
-elif page == "Evaluation":
-    st.markdown('<div class="eyebrow">Three evaluation layers</div>', unsafe_allow_html=True)
+
+def evaluation() -> None:
     st.title("Evaluation")
-    scanner_tab, retrieval_tab, agent_tab = st.tabs(["Scanner", "Retrieval", "Agent"])
-    with scanner_tab:
-        st.subheader("Scanner evaluation against OWASP ground truth")
-        st.dataframe(
-            scanner_metrics(),
-            hide_index=True,
-            width="stretch",
-            column_config={
-                "precision": st.column_config.NumberColumn("Precision", format="%.2f"),
-                "recall": st.column_config.NumberColumn("Recall", format="%.2f"),
-                "f1": st.column_config.NumberColumn("F1", format="%.2f"),
-            },
-        )
-        st.info("Ground truth được join sau scan và chỉ dùng để tính TP/FP/FN/TN, precision, recall và F1.")
-    with retrieval_tab:
-        result = retrieval_evaluation(DB, groups, 3)
-        e1, e2, e3 = st.columns(3)
-        e1.metric("Evaluated groups", result["evaluated_groups"])
-        e2.metric("Top-K", result["top_k"])
-        e3.metric("CWE hit rate", f"{(result['hit_rate'] or 0):.1%}")
-        st.caption("Một retrieval hit được tính khi Top-K có KB document mang tag CWE mong đợi. Đây là phép đo retrieval, không phải đánh giá chất lượng câu trả lời Agent.")
-    with agent_tab:
-        reports = st.session_state.agent_reports
-        valid = sum(not validate_report(report) for report in reports)
-        reviewed = sum(report["review_status"] != "Needs review" for report in reports)
-        a1, a2, a3 = st.columns(3)
-        a1.metric("Reports", len(reports))
-        a2.metric("JSON contract valid", f"{valid}/{len(reports)}" if reports else "0/0")
-        a3.metric("Human-reviewed", f"{reviewed}/{len(reports)}" if reports else "0/0")
-        st.warning("OWASP ground truth có thể đánh giá CWE/verdict trên Benchmark, nhưng không tự đánh giá được chất lượng explanation hoặc remediation. Hai phần này cần rubric riêng hoặc human review.")
+    scanner, grouping, agent, failures = st.tabs(["Scanner metrics", "Grouping integrity", "Agent integrity", "Failure cases"])
+    with scanner:
+        llm = json.loads((ROOT / "artifacts/week-1/llm-20260728/results.json").read_text(encoding="utf-8")); semgrep = json.loads((ROOT / "artifacts/week-1/semgrep-20260806/results.json").read_text(encoding="utf-8"))
+        rows = []
+        for name, data_row in [("Alibaba OpenCodeReview", llm["scanners"]["open_code_review"]), ("Vercel DeepSec/Pi", llm["scanners"]["deepsec"])]: rows.append({"Scanner": name, **data_row["metrics"]["overall"]})
+        rows.append({"Scanner": "Semgrep security-audit", **semgrep["variants"]["security-audit"]["metrics"]["metrics"]["overall"]})
+        st.dataframe(rows, hide_index=True, width="stretch")
+    with grouping:
+        path = WEEK3 / "evaluation/grouping-metrics.json"; st.json(json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"state": "not generated"})
+    with agent:
+        path = WEEK3 / "evaluation/agent-metrics.json"; st.json(json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"state": "not generated"})
+    with failures:
+        path = WEEK3 / "evaluation/failure-cases.jsonl"; rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()] if path.exists() else []
+        st.dataframe(rows, hide_index=True, width="stretch") if rows else st.caption("Run được chọn không có controlled failure.")
+
+
+pages = {
+    "Workspace": [
+        st.Page(overview, title="Overview", icon="🏠"),
+        st.Page(findings, title="Findings Explorer", icon="🔎"),
+        st.Page(agent_analysis, title="Agent Analysis", icon="🛡️"),
+        st.Page(reports_page, title="Reports", icon="📄"),
+        st.Page(evaluation, title="Evaluation", icon="📊"),
+    ]
+}
+st.navigation(pages).run()

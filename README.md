@@ -15,7 +15,7 @@ python -m pytest -q
 
 **Streamlit deployment:** [sentinel-benchmarkjava.streamlit.app](https://sentinel-benchmarkjava.streamlit.app/). Kiểm tra ẩn danh ngày 2026-08-07 vẫn redirect tới `/login`; cần bật public sharing trước khi gửi mentor.
 
-Ứng dụng đã được deploy từ repository này với entrypoint `app/streamlit_app.py`. Giao diện được tổ chức thành một **Security Analysis Workspace** gồm Overview, Findings Explorer, Agent Analysis, Reports và Evaluation. Người dùng có thể chọn canonical group, xem evidence cùng KB liên quan, tạo structured report, review và xuất JSONL.
+Ứng dụng dùng entrypoint `app/streamlit_app.py`. Giao diện là **Security Analysis Workspace** gồm Overview, Findings Explorer, Agent Analysis, Reports và Evaluation. Agent Analysis có grounded chat, tạo report có xác nhận và export JSONL/chat transcript. Public mode chỉ đọc baked artifacts; inference chỉ xảy ra sau thao tác gửi/xác nhận rõ ràng, không chạy trên rerun thông thường.
 
 **GitHub Code scanning:** [89 Semgrep alerts trên phạm vi 100 file](https://github.com/phoebe497/sentinel-benchmarkJava/security/code-scanning).
 

@@ -9,11 +9,11 @@ Scanner outputs → Normalize → Deduplicate → Retrieve KB
 
 ## Năm khu vực chính
 
-- **Overview:** kể lại pipeline Week 1–3 và snapshot dữ liệu.
-- **Findings Explorer:** tìm kiếm và lọc theo analysis group thay vì hiển thị 372 observations rời rạc.
-- **Agent Analysis:** đặt finding context, retrieved knowledge và Agent report cạnh nhau.
-- **Reports:** review trạng thái và xuất từng report hoặc toàn bộ JSONL.
-- **Evaluation:** tách riêng scanner, retrieval và Agent evaluation.
+- **Tổng quan:** dashboard cho biết dữ liệu và Agent đã sẵn sàng đến đâu, đồng thời đưa người dùng vào một ví dụ cụ thể.
+- **Phân tích lỗ hổng:** một luồng dọc gồm chọn CWE, kiểm tra evidence/KB, hỏi Sentinel và xuất report. Chi tiết kỹ thuật được mở khi cần thay vì chiếm luồng đọc chính.
+- **Knowledge Base:** trang tìm kiếm độc lập với Semantic Search (TF-IDF + LSA/SVD), Hybrid Search và Keyword Search (SQLite FTS5/BM25). Semantic và Hybrid chạy local, không gọi LLM.
+- **Báo cáo:** lọc theo CWE hoặc mức độ, review nội dung và xuất từng report hoặc toàn bộ JSONL.
+- **Dữ liệu & kiểm định:** giữ observations, grouping, scanner metrics, Agent metrics và failure cases cho review kỹ thuật.
 
 Analysis group được tạo theo `BenchmarkTest + expected CWE`, vì tiêu đề và vị trí do từng scanner trả về có thể khác nhau. Phép chiếu này không sửa hoặc ghi đè observations của Week 2. Các group này mang ID `AG-*` và được ghi rõ là `benchmark_assisted`.
 
@@ -21,13 +21,15 @@ Week 3 dùng `src/sentinel_benchmark/analysis/` cho grouping deterministic, prov
 
 Ground-truth label và TP/TN/FP/FN không đi vào provider input hoặc Agent report. Evaluation join label ở lớp riêng; `expected_cwe` trong prompt luôn được chú thích là metadata dùng để correlate scanner observations.
 
-## Grounded chat và tạo report
+## Hỏi đáp và tạo report
 
-Agent Analysis có ba tab: scanner evidence/KB, create/view report và Ask Sentinel.
-Ở local mode, người dùng phải xác nhận group + provider trước khi UI gọi canonical
+Trang Phân tích lỗ hổng giữ evidence, knowledge, hỏi đáp và report trong cùng một
+luồng bốn bước. Các câu hỏi mẫu luôn chứa CWE, tên lỗ hổng và Benchmark test đang
+chọn để người mới không phải tự viết prompt kỹ thuật. Ở local mode, người dùng
+phải xác nhận group + provider trước khi UI gọi canonical
 CLI để tạo một checksummed report artifact. Chat chỉ chạy khi người dùng gửi câu
 hỏi; câu trả lời bị giới hạn vào observation ID, KB document ID và report ID đã
 có. Citation ngoài allowlist bị từ chối. Public readonly mode chỉ tóm tắt baked
 artifact và không kết nối local router.
 
-WebGoat không được đưa vào active index, Findings Explorer hoặc Agent Analysis của repository BenchmarkJava.
+WebGoat không được đưa vào active index, dashboard hoặc trang Phân tích lỗ hổng của repository BenchmarkJava.

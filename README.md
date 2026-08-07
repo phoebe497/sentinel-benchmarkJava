@@ -10,13 +10,13 @@ Nếu Streamlit yêu cầu đăng nhập, deployment chưa được bật public
 
 ## Có thể xem gì trên demo?
 
-Một lượt demo ngắn thường đi theo năm bước:
+Một lượt demo ngắn thường đi theo năm khu vực:
 
-1. **Overview** cho biết phạm vi dữ liệu, số cảnh báo của từng scanner và kết quả chạy Agent.
-2. **Findings Explorer** giữ cả cảnh báo gốc, canonical groups của Week 2 và analysis groups của Week 3 để có thể truy ngược nguồn.
-3. **Agent Analysis** đặt scanner evidence, tài liệu KB và báo cáo cạnh nhau. Có thể chọn một CWE cụ thể, chẳng hạn `CWE-327 — Broken or Risky Cryptographic Algorithm`, rồi hỏi Sentinel cách giải thích, xác minh hoặc khắc phục.
-4. **Reports** hiển thị báo cáo đã tạo, model sử dụng, confidence, nguồn tham chiếu và nút tải JSONL.
-5. **Evaluation** tách riêng chất lượng scanner, tính toàn vẹn của grouping, kết quả Agent và các failure case.
+1. **Tổng quan** là dashboard về phạm vi dữ liệu, kết quả Agent, phân bố cảnh báo theo scanner và các CWE nên mở thử.
+2. **Phân tích lỗ hổng** gom toàn bộ luồng chọn CWE, kiểm tra evidence, hỏi Sentinel và tải báo cáo vào cùng một trang. Có thể bắt đầu với `CWE-327 — Broken or Risky Cryptographic Algorithm`.
+3. **Knowledge Base** hỗ trợ Semantic Search chạy local bằng Latent Semantic Analysis, Hybrid Search kết hợp semantic với BM25 và Keyword Search cho CWE hoặc thuật ngữ chính xác.
+4. **Báo cáo** cho phép lọc kết quả theo CWE hoặc mức độ, mở provenance và tải một hay toàn bộ file JSONL.
+5. **Dữ liệu & kiểm định** giữ raw observations, canonical groups, analysis groups và các metric kỹ thuật để review sâu khi cần.
 
 Public UI chỉ đọc artifact đã tạo sẵn nên không cần API key và không tự gọi model. Khi chạy local, người dùng có thể bật 9Router để hỏi đáp hoặc tạo report mới sau một bước xác nhận rõ ràng.
 
@@ -70,7 +70,7 @@ FakeProvider không dùng dữ liệu mẫu viết tay. Nó đọc đúng 372 ob
 
 - Mỗi report giữ observation IDs, scanner, vị trí, KB document IDs, prompt hash, provider, model và run ID.
 - Test ID, CWE, location và tool do Python gắn từ dữ liệu gốc; model không được phép sinh lại các trường này.
-- Ground truth và nhãn TP/TN/FP/FN chỉ xuất hiện ở bước Evaluation, không được gửi vào prompt.
+- Ground truth và nhãn TP/TN/FP/FN chỉ xuất hiện ở khu vực Kiểm định, không được gửi vào prompt.
 - Evidence Guard từ chối JSON sai schema, field ngoài contract và citation không tồn tại.
 - Mỗi run có manifest, summary, error records và SHA-256 checksums. UI báo lỗi nếu artifact không còn khớp checksum.
 - Một group lỗi không làm dừng cả batch; lỗi được lưu riêng để review.

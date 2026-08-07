@@ -21,7 +21,7 @@ def test_manifest_is_benchmark_only() -> None:
 def test_build_and_search(tmp_path: Path) -> None:
     db = tmp_path / "sentinel.db"
     result = build(ROOT / "configs" / "sources.json", db, ROOT / "datasets" / "knowledge" / "security-topics.jsonl")
-    assert result == {"findings": 372, "knowledge": 12}
+    assert result == {"findings": 372, "knowledge": 30}
     with sqlite3.connect(db) as conn:
         assert conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0] == 372
         assert conn.execute("SELECT COUNT(DISTINCT dataset) FROM findings").fetchone()[0] == 1

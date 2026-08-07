@@ -13,7 +13,7 @@ streamlit run app/streamlit_app.py
 python -m pytest -q
 ```
 
-**Live demo:** [sentinel-benchmarkjava.streamlit.app](https://sentinel-benchmarkjava.streamlit.app/)
+**Streamlit deployment:** [sentinel-benchmarkjava.streamlit.app](https://sentinel-benchmarkjava.streamlit.app/). Kiểm tra ẩn danh ngày 2026-08-07 vẫn redirect tới `/login`; cần bật public sharing trước khi gửi mentor.
 
 Ứng dụng đã được deploy từ repository này với entrypoint `app/streamlit_app.py`. Giao diện được tổ chức thành một **Security Analysis Workspace** gồm Overview, Findings Explorer, Agent Analysis, Reports và Evaluation. Người dùng có thể chọn canonical group, xem evidence cùng KB liên quan, tạo structured report, review và xuất JSONL.
 
@@ -44,6 +44,6 @@ python -m pytest -q
 | 3 | Đã tạo khung làm việc | Chờ chốt phạm vi chi tiết với mentor |
 | 4–6 | Chưa bắt đầu | Cập nhật theo từng tuần |
 
-Chi tiết: [`docs/repository-layout.md`](docs/repository-layout.md).
+Chi tiết: [`docs/repository-layout.md`](docs/repository-layout.md). Báo cáo Week 1–2 đã được khóa checksum tại [`reports/locked.json`](reports/locked.json).
 
 Thiết kế UI Week 3: [`docs/security-analysis-workspace.md`](docs/security-analysis-workspace.md).

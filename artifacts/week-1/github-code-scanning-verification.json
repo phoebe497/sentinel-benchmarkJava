@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-08-07T00:00:00+07:00",
+  "repository": "https://github.com/phoebe497/sentinel-benchmarkJava",
+  "workflow_run": "https://github.com/phoebe497/sentinel-benchmarkJava/actions/runs/31082995915",
+  "workflow_conclusion": "success",
+  "sarif_category": "semgrep-benchmarkjava-first100",
+  "tool": "Semgrep OSS",
+  "open_alerts": 89,
+  "severity": {
+    "error": 23,
+    "warning": 66
+  },
+  "scope": "BenchmarkTest00001.java through BenchmarkTest00100.java",
+  "code_scanning_url": "https://github.com/phoebe497/sentinel-benchmarkJava/security/code-scanning"
+}

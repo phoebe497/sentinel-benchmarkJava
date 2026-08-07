@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -35,3 +36,11 @@ def test_ground_truth_manifest() -> None:
     assert manifest["count"] == 100
     assert manifest["positive"] + manifest["negative"] == 100
     assert manifest["ground_truth_joined_after_scanning"] is True
+
+
+def test_submitted_reports_are_immutable() -> None:
+    lock = json.loads((ROOT / "reports" / "locked.json").read_text(encoding="utf-8"))
+    assert lock["algorithm"] == "sha256"
+    for relative_path, expected in lock["files"].items():
+        actual = hashlib.sha256((ROOT / relative_path).read_bytes()).hexdigest()
+        assert actual == expected, f"submitted report changed: {relative_path}"

@@ -532,8 +532,17 @@ def dashboard() -> None:
         start_guided_demo()
         st.switch_page(findings_page)
 
-    section_intro("Luồng sử dụng", "Sáu bước để hoàn thành một lượt phân tích và kiểm chứng", "Bạn không cần đọc raw scanner output trước khi bắt đầu.")
+    section_intro("Luồng sử dụng", "Sáu bước để hoàn thành một lượt phân tích và kiểm chứng", "Bạn không cần đọc raw scanner output trước khi bắt đầu. Số tuần nằm ở mục ngay dưới — không phải tên trang.")
     journey_strip({1} if not _guided_active() else None)
+
+    section_intro(
+        "Theo tuần",
+        "Tuần 1–6 nằm ở trang nào",
+        "Giao diện đi theo việc làm, không đặt Week 1…6 lên sidebar. Bảng này chỉ đường cho mentor.",
+    )
+    _week_map(compact=True)
+    if st.button("Mở trang Các tuần đã làm", width="stretch"):
+        st.switch_page(weeks_page)
 
     baseline_path = WEEK3 / "baseline.json"
     baseline = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.exists() else {}
@@ -1253,6 +1262,94 @@ def data_and_evaluation() -> None:
                 st.caption("Run được đánh giá không có controlled failure.")
 
 
+WEEK_GUIDE = [
+    {
+        "week": "Tuần 1",
+        "title": "Quét và chuẩn hóa cảnh báo",
+        "did": "Quét 100 test OWASP BenchmarkJava bằng Semgrep, OpenCodeReview và DeepSec. 372 observations được giữ provenance, chưa ghép ground truth.",
+        "open": "Lỗ hổng & bằng chứng",
+        "target": "findings",
+    },
+    {
+        "week": "Tuần 2",
+        "title": "Kho tri thức và tìm kiếm",
+        "did": "Lập KB (OWASP, tài liệu scanner, ví dụ lỗ hổng) và tìm theo nghĩa / hybrid / từ khóa.",
+        "open": "Tra cứu tri thức",
+        "target": "knowledge",
+    },
+    {
+        "week": "Tuần 3",
+        "title": "Security Analysis Agent",
+        "did": "Nhóm evidence, gọi LLM theo JSON contract, Evidence Guard, báo cáo JSONL và hỏi đáp grounded.",
+        "open": "Phân tích của Agent",
+        "target": "agent",
+    },
+    {
+        "week": "Tuần 4",
+        "title": "API Gateway (repo riêng)",
+        "did": "Gateway + tool safe_probe + allowlist. Mọi request kiểm chứng đi qua Gateway, không gọi target trực tiếp.",
+        "open": "Kiểm chứng an toàn",
+        "target": "verify",
+    },
+    {
+        "week": "Tuần 5",
+        "title": "Guardrails: injection, redaction, duyệt",
+        "did": "Lọc prompt-injection, che secret trong prompt/log, cổng Approve/Reject. Reject = không gửi request.",
+        "open": "Kiểm chứng an toàn",
+        "target": "verify",
+    },
+    {
+        "week": "Tuần 6",
+        "title": "Luồng end-to-end, đánh giá và số liệu",
+        "did": "Nối Agent → duyệt → Gateway → phản hồi đã lọc → cập nhật báo cáo. Xem đúng–sai và metrics.",
+        "open": "Đánh giá độ chính xác",
+        "target": "evaluation",
+    },
+]
+
+
+def _week_target(name: str):
+    return {
+        "findings": findings_page,
+        "knowledge": knowledge_page,
+        "agent": agent_page,
+        "verify": verify_page,
+        "evaluation": evaluation_page,
+        "metrics": metrics_page,
+    }[name]
+
+
+def _week_map(*, compact: bool = False) -> None:
+    rows = WEEK_GUIDE[:3] if compact else WEEK_GUIDE
+    for item in rows:
+        box = st.container(border=True)
+        with box:
+            st.markdown(f"**{item['week']} — {item['title']}**")
+            st.caption(item["did"])
+            go, dest = st.columns([2, 1])
+            go.caption(f"Xem trên UI: {item['open']}")
+            if dest.button(item["open"], key=f"week-go-{item['week']}-{compact}", width="stretch"):
+                st.switch_page(_week_target(item["target"]))
+    if compact:
+        st.caption("Tuần 4–6: Gateway, guardrails và đánh giá — mở trang Các tuần đã làm để xem đủ.")
+
+
+def weeks_page() -> None:
+    page_intro(
+        "Các tuần đã làm",
+        "Từ tuần 1 đến tuần 6, mỗi phần nằm ở trang nào",
+        "Sidebar không dùng tên tuần. Trang này chỉ đường: việc đã làm, tiêu chí, và nút mở đúng bề mặt UI.",
+    )
+    journey_strip()
+    _week_map(compact=False)
+    with st.expander("Vì sao sidebar không ghi Week 1…6"):
+        st.write(
+            "Người xem demo đi theo việc (chọn lỗ hổng, hỏi Agent, duyệt phép thử). "
+            "Mentor cần bản đồ tuần thì vào trang này hoặc mục Theo tuần trên Tổng quan. "
+            "Tuần 4 sống ở repo API-Gateway; app này chỉ gọi Gateway, không vendor code đó."
+        )
+
+
 def _selected_group() -> dict | None:
     return next((group for group in groups if group["analysis_group_id"] == st.session_state.get("selected_group_id")), None)
 
@@ -1463,6 +1560,7 @@ def metrics_page() -> None:
 findings_page = st.Page(analysis_workspace, title="Lỗ hổng & bằng chứng", icon=":material/bug_report:")
 agent_page = st.Page(agent_workspace, title="Phân tích của Agent", icon=":material/psychology:")
 knowledge_page = st.Page(knowledge_base_page, title="Tra cứu tri thức", icon=":material/menu_book:")
+weeks_page = st.Page(weeks_page, title="Các tuần đã làm", icon=":material/calendar_month:")
 verify_page = st.Page(verify_page, title="Kiểm chứng an toàn", icon=":material/verified_user:")
 evaluation_page = st.Page(evaluation_page, title="Đánh giá độ chính xác", icon=":material/analytics:")
 metrics_page = st.Page(metrics_page, title="Chạy & số liệu", icon=":material/monitoring:")
@@ -1485,7 +1583,7 @@ with st.sidebar:
 
 navigation = st.navigation(
     {
-        "PHÂN TÍCH": [dashboard_page, findings_page, knowledge_page, agent_page],
+        "PHÂN TÍCH": [dashboard_page, weeks_page, findings_page, knowledge_page, agent_page],
         "KIỂM CHỨNG": [verify_page],
         "KẾT QUẢ": [evaluation_page, metrics_page, reports_nav_page, data_page],
     }

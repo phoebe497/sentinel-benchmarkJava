@@ -1,0 +1,28 @@
+{
+  "approval": {
+    "approve": 1,
+    "policy": "every request requires explicit approval (default-deny)",
+    "reject": 1,
+    "total": 2
+  },
+  "generated_at": "2026-08-19T02:16:30.690909Z",
+  "injection": {
+    "benign_flagged": false,
+    "untrusted_flagged": true,
+    "untrusted_pattern_count": 3
+  },
+  "redaction": {
+    "by_type": {
+      "API_KEY": 1,
+      "EMAIL": 1,
+      "PASSWORD": 1,
+      "PHONE": 1,
+      "TOKEN": 1
+    },
+    "idempotent": true,
+    "secrets_absent": true,
+    "total_masked": 5
+  },
+  "schema_version": "1.0",
+  "test_suite": "tests/test_week5_guardrails.py"
+}

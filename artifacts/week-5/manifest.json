@@ -1,0 +1,13 @@
+{
+  "artifacts": [
+    "redaction-proof.json",
+    "injection-scan.json",
+    "approval-events.jsonl",
+    "metrics.json",
+    "summary.json"
+  ],
+  "generated_at": "2026-08-19T02:16:30.765639Z",
+  "schema_version": "1.0",
+  "source_fixture": "datasets/guardrails/crafted-injection-response.json",
+  "week": 5
+}

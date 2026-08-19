@@ -1,0 +1,2 @@
+{"decision":"approve","endpoint":"/api/health","method":"GET","payload":null,"purpose":"verify endpoint reachability","reason":"operator approved read-only check","timestamp":"2026-08-19T02:16:30.635325Z"}
+{"decision":"reject","endpoint":"/api/login","method":"POST","payload":{"pass":"password=[REDACTED_PASSWORD]","probe":"1' OR '1'='1","user":"[REDACTED_EMAIL]"},"purpose":"SQLi probe against login (carries edge payload)","reason":"operator rejected mutating probe","timestamp":"2026-08-19T02:16:30.664520Z"}

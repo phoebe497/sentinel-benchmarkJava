@@ -1,0 +1,15 @@
+{
+  "approvals_recorded": 2,
+  "generated_at": "2026-08-19T02:16:30.690951Z",
+  "guardrails": [
+    "redaction",
+    "injection",
+    "approval"
+  ],
+  "injection_benign_flagged": false,
+  "injection_untrusted_flagged": true,
+  "redaction_secrets_absent": true,
+  "schema_version": "1.0",
+  "status": "ok",
+  "week": 5
+}

@@ -160,9 +160,10 @@ st.markdown(
     .journey-step {
         background: var(--sentinel-surface);
         border: 1px solid var(--sentinel-border);
-        border-radius: 12px;
-        padding: .95rem;
-        min-height: 96px;
+        border-radius: 10px;
+        padding: .7rem .55rem;
+        min-height: 0;
+        text-align: center;
     }
     .journey-step.active {border-color: var(--sentinel-primary); background: var(--sentinel-primary-soft);}
     .journey-step.done {border-color: #b7c9c4; background: #f4f8f7;}
@@ -218,8 +219,13 @@ st.markdown(
         margin-bottom: .55rem;
     }
     .journey-step.active .journey-number {background: var(--sentinel-primary); color: #fff;}
-    .journey-label {font-weight: 680; color: #172321; margin-bottom: .15rem;}
-    .journey-copy {font-size: .83rem; color: var(--sentinel-ink-muted); line-height: 1.4;}
+    .journey-label {
+        font-weight: 680;
+        color: #172321;
+        margin-bottom: .15rem;
+        white-space: nowrap;
+    }
+    .journey-copy {font-size: .78rem; color: var(--sentinel-ink-muted); line-height: 1.35;}
     .context-card {
         background: var(--sentinel-surface);
         border: 1px solid var(--sentinel-border);
@@ -372,12 +378,12 @@ def plain_block(text: str) -> None:
 
 
 JOURNEY_STEPS = [
-    (1, "Chọn lỗ hổng", "Chọn CWE và vị trí cần xem."),
-    (2, "Xem bằng chứng", "Đọc cảnh báo scanner và tri thức."),
-    (3, "Hỏi Agent", "Nhận giải thích theo đúng ngữ cảnh."),
-    (4, "Duyệt phép thử", "Từ chối hoặc duyệt trước khi gửi."),
-    (5, "Phản hồi đã lọc", "Xem kết quả đã che và đã cách ly."),
-    (6, "Xuất / đánh giá", "Xem đúng–sai và tải báo cáo."),
+    (1, "Quét", "Kết quả công cụ quét"),
+    (2, "Tri thức", "Tài liệu đối chiếu"),
+    (3, "Báo cáo", "Agent soạn báo cáo"),
+    (4, "Phê duyệt", "Đề xuất và quyết định"),
+    (5, "Cổng lọc", "Gateway · injection · redaction"),
+    (6, "Kết quả", "Đánh giá và nhật ký"),
 ]
 
 
@@ -511,9 +517,9 @@ except Exception as exc:
 def dashboard() -> None:
     page_intro(
         "Security analysis workspace",
-        "Từ cảnh báo scanner đến báo cáo dễ kiểm tra",
-        "Sentinel gom các cảnh báo liên quan, đặt bằng chứng và kiến thức bảo mật cạnh nhau, "
-        "giúp bạn hỏi Agent, duyệt một phép thử qua Gateway, rồi xem phản hồi đã lọc.",
+        "Từ kết quả quét đến phản hồi đã lọc",
+        "Sentinel trình bày một đường chạy: quét nguồn, báo cáo Agent, phê duyệt request, "
+        "chuyển tiếp qua API Gateway, rồi chặn injection và che dữ liệu nhạy cảm.",
         hero=True,
     )
 
@@ -526,23 +532,23 @@ def dashboard() -> None:
         if sample_group:
             st.session_state["selected_group_id"] = sample_group["analysis_group_id"]
         st.switch_page(findings_page)
-    if guided.button("Chạy demo có hướng dẫn", width="stretch"):
+    if guided.button("Bắt đầu bản trình diễn", width="stretch"):
         if sample_group:
             st.session_state["selected_group_id"] = sample_group["analysis_group_id"]
         start_guided_demo()
         st.switch_page(findings_page)
 
-    section_intro("Luồng sử dụng", "Sáu bước để hoàn thành một lượt phân tích và kiểm chứng", "Bạn không cần đọc raw scanner output trước khi bắt đầu. Số tuần nằm ở mục ngay dưới — không phải tên trang.")
+    section_intro("Pipeline", "Sáu giai đoạn của bản trình diễn", "Thanh tiến trình chỉ giai đoạn hiện tại. Không dùng số tuần trên giao diện.")
     journey_strip({1} if not _guided_active() else None)
 
     section_intro(
-        "Theo tuần",
-        "Tuần 1–6 nằm ở trang nào",
-        "Giao diện đi theo việc làm, không đặt Week 1…6 lên sidebar. Bảng này chỉ đường cho mentor.",
+        "Bản trình diễn",
+        "Bảy mục bắt buộc",
+        "Một lượt demo đủ khi đã xem quét, báo cáo, đề xuất request, Approve/Reject, Gateway, chặn injection và che dữ liệu.",
     )
-    _week_map(compact=True)
-    if st.button("Mở trang Các tuần đã làm", width="stretch"):
-        st.switch_page(weeks_page)
+    render_demo_beats()
+    if st.button("Mở luồng hệ thống", width="stretch"):
+        st.switch_page(pipeline_page)
 
     baseline_path = WEEK3 / "baseline.json"
     baseline = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.exists() else {}
@@ -611,9 +617,9 @@ def analysis_workspace() -> None:
         "Lọc theo CWE, chọn một Benchmark test, rồi đọc observation và tài liệu tri thức liên quan.",
     )
     journey_strip({1, 2} if not _guided_active() else None)
-    coach(1, "Bước 1 — bấm Dùng ví dụ CWE-89 để chọn lỗ hổng mẫu.")
+    coach(1, "Quét — chọn CWE-89 để xem kết quả một lần chạy scanner.")
 
-    section_intro("Bước 1", "Chọn lỗ hổng cần xem", "Lọc theo CWE trước, sau đó chọn một Benchmark test cụ thể.")
+    section_intro("Quét", "Kết quả công cụ quét", "Lọc theo CWE, rồi chọn một test case đã có observation.")
     example = next((group for group in groups if group["expected_cwe"] == "CWE-89"), None)
     if example and st.button("Dùng ví dụ CWE-89", type="primary" if _guided_step() == 1 else "secondary", width="stretch"):
         st.session_state["selected_group_id"] = example["analysis_group_id"]
@@ -682,8 +688,8 @@ def analysis_workspace() -> None:
     report = matching_reports[-1] if matching_reports else None
     knowledge = search_knowledge(DB, f"{selected_group['expected_cwe']} {selected_group['category']}", 3)
 
-    section_intro("Bước 2", "Kiểm tra bằng chứng và kiến thức tham chiếu", "Scanner nói gì, ở đâu và Sentinel dùng tài liệu nào để giải thích.")
-    coach(2, "Bước 2 — mở bằng chứng scanner đầu tiên, rồi tiếp tục sang hỏi Agent.")
+    section_intro("Tri thức", "Bằng chứng scanner và tài liệu đối chiếu", "Quan sát vị trí, công cụ phát hiện và tài liệu CWE tương ứng.")
+    coach(2, "Tri thức — mở observation đầu tiên, sau đó chuyển sang báo cáo Agent.")
     if _guided_active() and _guided_step() == 2:
         st.session_state["guided_expand_evidence"] = True
     evidence_col, knowledge_col = st.columns([1.2, 1])
@@ -753,8 +759,8 @@ def agent_workspace() -> None:
     report = matching_reports[-1] if matching_reports else None
     knowledge = search_knowledge(DB, f"{selected_group['expected_cwe']} {selected_group['category']}", 3)
 
-    section_intro("Bước 3", "Hỏi Sentinel về lỗ hổng này", "Chọn câu hỏi mẫu hoặc nhập câu hỏi riêng. Câu trả lời luôn bám theo nhóm đang hiển thị.")
-    coach(3, "Bước 3 — bấm Giải thích dễ hiểu để xem Agent trả lời từ bằng chứng đã chọn.")
+    section_intro("Báo cáo", "Agent soạn báo cáo và trả lời", "Mọi câu trả lời bị giới hạn bởi evidence, KB và report của nhóm đã chọn.")
+    coach(3, "Báo cáo — chọn Giải thích dễ hiểu để Agent tạo câu trả lời từ evidence.")
     if READONLY:
         chat_provider = "offline_artifact"
         st.caption("Chế độ public: trả lời từ artifact và bằng chứng có sẵn, không gọi model mới.")
@@ -858,7 +864,7 @@ def agent_workspace() -> None:
         st.session_state[chat_key] = []
         st.rerun()
 
-    section_intro("Bước 4", "Xem hoặc xuất báo cáo", "Báo cáo giữ lại evidence ID, nguồn KB, provider, model và kết quả Evidence Guard.")
+    section_intro("Báo cáo đã lưu", "Xem hoặc xuất JSONL", "Báo cáo giữ evidence ID, nguồn KB, provider, model và kết quả Evidence Guard.")
     if report:
         report_content(report)
         st.download_button(
@@ -1262,53 +1268,63 @@ def data_and_evaluation() -> None:
                 st.caption("Run được đánh giá không có controlled failure.")
 
 
-WEEK_GUIDE = [
+PIPELINE_STAGES = [
     {
-        "week": "Tuần 1",
-        "title": "Quét và chuẩn hóa cảnh báo",
-        "did": "Quét 100 test OWASP BenchmarkJava bằng Semgrep, OpenCodeReview và DeepSec. 372 observations được giữ provenance, chưa ghép ground truth.",
+        "id": "scan",
+        "label": "Quét",
+        "summary": "Một lần chạy công cụ quét trên 100 test case. 372 quan sát, ba scanner.",
         "open": "Lỗ hổng & bằng chứng",
         "target": "findings",
     },
     {
-        "week": "Tuần 2",
-        "title": "Kho tri thức và tìm kiếm",
-        "did": "Lập KB (OWASP, tài liệu scanner, ví dụ lỗ hổng) và tìm theo nghĩa / hybrid / từ khóa.",
+        "id": "knowledge",
+        "label": "Tri thức",
+        "summary": "Đối chiếu tài liệu kỹ thuật với CWE đã chọn.",
         "open": "Tra cứu tri thức",
         "target": "knowledge",
     },
     {
-        "week": "Tuần 3",
-        "title": "Security Analysis Agent",
-        "did": "Nhóm evidence, gọi LLM theo JSON contract, Evidence Guard, báo cáo JSONL và hỏi đáp grounded.",
+        "id": "report",
+        "label": "Báo cáo",
+        "summary": "Agent tạo báo cáo theo hợp đồng JSON. Evidence Guard kiểm tra nguồn.",
         "open": "Phân tích của Agent",
         "target": "agent",
     },
     {
-        "week": "Tuần 4",
-        "title": "API Gateway (repo riêng)",
-        "did": "Gateway + tool safe_probe + allowlist. Mọi request kiểm chứng đi qua Gateway, không gọi target trực tiếp.",
+        "id": "approval",
+        "label": "Phê duyệt",
+        "summary": "Agent đề xuất request. Người dùng Approve hoặc Reject. Reject không gửi.",
         "open": "Kiểm chứng an toàn",
         "target": "verify",
     },
     {
-        "week": "Tuần 5",
-        "title": "Guardrails: injection, redaction, duyệt",
-        "did": "Lọc prompt-injection, che secret trong prompt/log, cổng Approve/Reject. Reject = không gửi request.",
+        "id": "gateway",
+        "label": "Cổng lọc",
+        "summary": "Request đi qua API Gateway. Injection bị cách ly. Dữ liệu nhạy cảm bị che.",
         "open": "Kiểm chứng an toàn",
         "target": "verify",
     },
     {
-        "week": "Tuần 6",
-        "title": "Luồng end-to-end, đánh giá và số liệu",
-        "did": "Nối Agent → duyệt → Gateway → phản hồi đã lọc → cập nhật báo cáo. Xem đúng–sai và metrics.",
+        "id": "result",
+        "label": "Kết quả",
+        "summary": "Cập nhật báo cáo, ma trận đánh giá và nhật ký đã redact.",
         "open": "Đánh giá độ chính xác",
         "target": "evaluation",
     },
 ]
 
+DEMO_BEATS = [
+    ("Chạy quét", "Hiển thị kết quả một lần chạy scanner.", "findings"),
+    ("Tạo báo cáo", "Agent sinh báo cáo có cấu trúc từ evidence.", "agent"),
+    ("Đề xuất request", "Agent chọn route và payload trong allowlist.", "verify"),
+    ("Approve / Reject", "Reject: request không được gửi. Approve: mới được phát.", "verify"),
+    ("API Gateway", "Mọi request đi qua Gateway, không gọi target trực tiếp.", "verify"),
+    ("Chặn injection", "Chỉ dẫn độc hại trong response bị gắn cờ và cách ly.", "verify"),
+    ("Che dữ liệu", "Email, token, mật khẩu không còn trong prompt, log hoặc UI.", "verify"),
+]
 
-def _week_target(name: str):
+
+def _pipeline_target(name: str):
     return {
         "findings": findings_page,
         "knowledge": knowledge_page,
@@ -1319,35 +1335,35 @@ def _week_target(name: str):
     }[name]
 
 
-def _week_map(*, compact: bool = False) -> None:
-    rows = WEEK_GUIDE[:3] if compact else WEEK_GUIDE
-    for item in rows:
-        box = st.container(border=True)
-        with box:
-            st.markdown(f"**{item['week']} — {item['title']}**")
-            st.caption(item["did"])
-            go, dest = st.columns([2, 1])
-            go.caption(f"Xem trên UI: {item['open']}")
-            if dest.button(item["open"], key=f"week-go-{item['week']}-{compact}", width="stretch"):
-                st.switch_page(_week_target(item["target"]))
-    if compact:
-        st.caption("Tuần 4–6: Gateway, guardrails và đánh giá — mở trang Các tuần đã làm để xem đủ.")
+def render_demo_beats() -> None:
+    for index, (title, detail, target) in enumerate(DEMO_BEATS, start=1):
+        left, right = st.columns([4, 1])
+        left.markdown(f"**{index}. {title}** — {detail}")
+        if right.button("Mở", key=f"demo-beat-{index}", width="stretch"):
+            st.switch_page(_pipeline_target(target))
 
 
-def weeks_page() -> None:
+def pipeline_page() -> None:
     page_intro(
-        "Các tuần đã làm",
-        "Từ tuần 1 đến tuần 6, mỗi phần nằm ở trang nào",
-        "Sidebar không dùng tên tuần. Trang này chỉ đường: việc đã làm, tiêu chí, và nút mở đúng bề mặt UI.",
+        "Luồng hệ thống",
+        "Sáu giai đoạn, một bản trình diễn",
+        "Pipeline dưới đây là toàn bộ đường chạy. Bản trình diễn phải lần lượt chứng minh bảy mục trong danh sách.",
     )
     journey_strip()
-    _week_map(compact=False)
-    with st.expander("Vì sao sidebar không ghi Week 1…6"):
-        st.write(
-            "Người xem demo đi theo việc (chọn lỗ hổng, hỏi Agent, duyệt phép thử). "
-            "Mentor cần bản đồ tuần thì vào trang này hoặc mục Theo tuần trên Tổng quan. "
-            "Tuần 4 sống ở repo API-Gateway; app này chỉ gọi Gateway, không vendor code đó."
-        )
+    section_intro("Pipeline", "Sáu giai đoạn", "Mỗi giai đoạn mở đúng bề mặt UI. Không dùng số tuần trên giao diện.")
+    for stage in PIPELINE_STAGES:
+        row = st.container(border=True)
+        with row:
+            text, action = st.columns([3.4, 1])
+            text.markdown(f"**{stage['label']}** — {stage['summary']}")
+            if action.button(stage["open"], key=f"pipeline-{stage['id']}", width="stretch"):
+                st.switch_page(_pipeline_target(stage["target"]))
+    section_intro(
+        "Bản trình diễn",
+        "Bảy mục bắt buộc",
+        "Một lượt demo đủ khi cả bảy mục đã được thao tác hoặc quan sát trên UI.",
+    )
+    render_demo_beats()
 
 
 def _selected_group() -> dict | None:
@@ -1416,9 +1432,9 @@ def verify_page() -> None:
     st.markdown(f'<div class="approval-card {card_state}">', unsafe_allow_html=True)
     section_intro("Phê duyệt", "Gửi request này qua Gateway?", "Không có đường bỏ qua. Reject là quyết định cuối của lượt này.")
     if state == "pending" and _guided_step() == 4:
-        coach(4, "Bước 4 — bấm Từ chối trước để chứng minh request không được gửi.")
+        coach(4, "Phê duyệt — chọn Reject để xác nhận request không được gửi.")
     elif state == "rejected" and _guided_step() == 4:
-        coach(4, "Bước 4 — đã chặn. Bây giờ bấm Duyệt và gửi để xem phản hồi đã lọc.")
+        coach(4, "Phê duyệt — đã Reject. Chọn Approve để gửi qua API Gateway.")
 
     reject_col, approve_col = st.columns(2)
     if reject_col.button("Từ chối", type="primary" if state == "pending" else "secondary", width="stretch", disabled=state == "approved"):
@@ -1467,7 +1483,7 @@ def verify_page() -> None:
     elif not result:
         st.caption("Duyệt phép thử để xem phản hồi.")
     else:
-        coach(5, "Bước 5 — đây là kết quả đã lọc. Bấm Xem đánh giá khi đã đọc xong.")
+        coach(5, "Cổng lọc — injection bị cách ly, dữ liệu nhạy cảm đã che. Mở đánh giá khi đã kiểm tra.")
         if result.get("redacted"):
             st.markdown('<span class="badge badge-success">Đã che dữ liệu nhạy cảm</span>', unsafe_allow_html=True)
         if result.get("injection"):
@@ -1493,7 +1509,7 @@ def evaluation_page() -> None:
         "Ma trận dưới đây dùng số liệu đã có trong artifact. Bộ 5–10 case Week 6 sẽ thay số này khi có expected answers.",
     )
     journey_strip({6} if not _guided_active() else None)
-    coach(6, "Bước 6 — xem đúng–sai, rồi mở Chạy & số liệu hoặc tải báo cáo.")
+    coach(6, "Kết quả — đối chiếu đánh giá, rồi mở số liệu hoặc tải báo cáo.")
     metrics_path = WEEK3 / "evaluation/agent-metrics.json"
     metrics = json.loads(metrics_path.read_text(encoding="utf-8")) if metrics_path.exists() else {}
     real = metrics.get("real", {})
@@ -1560,7 +1576,7 @@ def metrics_page() -> None:
 findings_page = st.Page(analysis_workspace, title="Lỗ hổng & bằng chứng", icon=":material/bug_report:")
 agent_page = st.Page(agent_workspace, title="Phân tích của Agent", icon=":material/psychology:")
 knowledge_page = st.Page(knowledge_base_page, title="Tra cứu tri thức", icon=":material/menu_book:")
-weeks_page = st.Page(weeks_page, title="Các tuần đã làm", icon=":material/calendar_month:")
+pipeline_page = st.Page(pipeline_page, title="Luồng hệ thống", icon=":material/account_tree:")
 verify_page = st.Page(verify_page, title="Kiểm chứng an toàn", icon=":material/verified_user:")
 evaluation_page = st.Page(evaluation_page, title="Đánh giá độ chính xác", icon=":material/analytics:")
 metrics_page = st.Page(metrics_page, title="Chạy & số liệu", icon=":material/monitoring:")
@@ -1574,7 +1590,7 @@ with st.sidebar:
         '<div class="sidebar-copy">Security Analysis Agent cho 100 OWASP BenchmarkJava test case.</div>',
         unsafe_allow_html=True,
     )
-    if st.button("Chạy demo có hướng dẫn", type="primary", width="stretch"):
+    if st.button("Bắt đầu bản trình diễn", type="primary", width="stretch"):
         sample = next((group for group in groups if group["expected_cwe"] == "CWE-89"), groups[0] if groups else None)
         if sample:
             st.session_state["selected_group_id"] = sample["analysis_group_id"]
@@ -1583,7 +1599,7 @@ with st.sidebar:
 
 navigation = st.navigation(
     {
-        "PHÂN TÍCH": [dashboard_page, weeks_page, findings_page, knowledge_page, agent_page],
+        "PHÂN TÍCH": [dashboard_page, pipeline_page, findings_page, knowledge_page, agent_page],
         "KIỂM CHỨNG": [verify_page],
         "KẾT QUẢ": [evaluation_page, metrics_page, reports_nav_page, data_page],
     }

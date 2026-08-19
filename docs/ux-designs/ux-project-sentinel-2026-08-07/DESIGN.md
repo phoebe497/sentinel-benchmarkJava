@@ -106,7 +106,7 @@ Controls and compact surfaces use `{rounded.md}`. Main context cards use `{round
 ## Components
 
 - **Page introduction** — one eyebrow, one clear title and a two-line explanation. No duplicate title in the sidebar.
-- **Journey strip** — six numbered steps: Chọn → Xem bằng chứng → Hỏi Agent → Duyệt phép thử → Phản hồi đã lọc → Xuất / đánh giá. The current step is teal; completed steps stay readable; future steps stay muted. The strip is a progress indicator, not navigation.
+- **Journey strip** — six pipeline stages, no week numbers: Quét → Tri thức → Báo cáo → Phê duyệt → Cổng lọc → Kết quả. The current stage is teal; completed stages stay readable; future stages stay muted. The strip is a progress indicator, not navigation.
 - **Guided spotlight** — in Guided Demo only. A teal 2px ring (`{colors.primary}`) plus a one-line coach label sits on the single control the user must click. No other control is ringed. After that click, the step advances (and the page may change).
 - **Finding selector** — CWE filter followed by a concrete Benchmark test selection. Help text explains why the test is relevant.
 - **Context card** — vulnerability name, test ID, scanner count and observation count. It replaces scattered badges and comments.

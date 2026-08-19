@@ -15,6 +15,7 @@ __pycache__/
 datasets/processed/
 artifacts/generated/
 artifacts/ci/
+artifacts/week-5/ui-approval-events.jsonl
 *.db
 .scan-targets/
 preview.md

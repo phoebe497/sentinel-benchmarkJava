@@ -20,6 +20,9 @@ from sentinel_benchmark.analysis.chat import answer_question, build_chat_payload
 from sentinel_benchmark.analysis.models import AnalysisGroup
 from sentinel_benchmark.analysis.providers import NineRouterProvider
 from sentinel_benchmark.analysis.taxonomy import cwe_name
+from sentinel_benchmark.guardrails.approval import ApprovalGate, ApprovalRejected, ProposedRequest
+from sentinel_benchmark.guardrails.injection import scan as scan_injection
+from sentinel_benchmark.guardrails.redaction import redact_obj
 from sentinel_benchmark.indexer import build
 from sentinel_benchmark.workspace import (
     available_runs,
@@ -36,6 +39,7 @@ MANIFEST = ROOT / "configs/sources.json"
 KB = ROOT / "datasets/knowledge/security-topics.jsonl"
 PREDICTIONS = ROOT / "artifacts/week-1/semgrep-20260806/variants/security-audit/predictions.jsonl"
 WEEK3 = ROOT / "artifacts/week-3"
+WEEK5 = ROOT / "artifacts/week-5"
 READONLY = os.getenv("SENTINEL_UI_READONLY", "1") != "0"
 
 SEVERITY_LABELS = {
@@ -50,7 +54,7 @@ SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "informationa
 
 st.set_page_config(
     page_title="Sentinel · Security Analysis",
-    page_icon="🛡️",
+    page_icon=":material/shield:",
     layout="wide",
     initial_sidebar_state="auto",
 )
@@ -117,7 +121,7 @@ st.markdown(
     .section-help {color: var(--sentinel-ink-muted); margin: 0 0 1rem; line-height: 1.55;}
     .journey {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: .75rem;
         margin: 1rem 0 1.5rem;
     }
@@ -129,6 +133,46 @@ st.markdown(
         min-height: 96px;
     }
     .journey-step.active {border-color: var(--sentinel-primary); background: var(--sentinel-primary-soft);}
+    .journey-step.done {border-color: #b7c9c4; background: #f4f8f7;}
+    .coach {
+        border: 2px solid var(--sentinel-primary);
+        background: var(--sentinel-primary-soft);
+        color: #115e59;
+        border-radius: 10px;
+        padding: .7rem .9rem;
+        font-size: .92rem;
+        font-weight: 650;
+        line-height: 1.45;
+        margin: .4rem 0 .75rem;
+    }
+    .approval-card, .proposal-card, .filtered-card {
+        background: var(--sentinel-surface);
+        border: 1px solid var(--sentinel-border);
+        border-radius: 14px;
+        padding: 1.15rem 1.25rem;
+        margin: .4rem 0 1.2rem;
+    }
+    .approval-card.rejected {background: #fdecea; border-color: #f0c2bd;}
+    .approval-card.approved {background: #e8f5ee; border-color: #b7dcc6;}
+    .badge {
+        display: inline-block;
+        padding: .2rem .62rem;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 700;
+        margin: 0 .35rem .35rem 0;
+    }
+    .badge-success {background: #e8f5ee; color: #157347;}
+    .badge-warning {background: #fff5e6; color: #b45309;}
+    .matrix-cell {
+        border: 1px solid var(--sentinel-border);
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        background: #fff;
+    }
+    .matrix-cell .n {font-size: 1.6rem; font-weight: 760; color: #172321;}
+    .matrix-cell .l {font-size: .82rem; color: var(--sentinel-ink-muted);}
     .journey-number {
         display: inline-flex;
         align-items: center;
@@ -231,13 +275,7 @@ def data() -> tuple[list[dict], list[dict], list[dict]]:
 
 
 def nine_router_provider() -> NineRouterProvider:
-    return NineRouterProvider(
-        base_url=os.getenv("NINE_ROUTER_BASE_URL", "http://127.0.0.1:20128/v1"),
-        model=os.getenv("NINE_ROUTER_MODEL", ""),
-        api_key=os.getenv("NINE_ROUTER_API_KEY", ""),
-        timeout=float(os.getenv("NINE_ROUTER_TIMEOUT_SECONDS", "60")),
-        max_retries=int(os.getenv("NINE_ROUTER_MAX_RETRIES", "1")),
-    )
+    return NineRouterProvider.from_env()
 
 
 def run_choice(*, show_control: bool = False, key: str = "run-choice") -> dict | None:
@@ -296,21 +334,71 @@ def section_intro(kicker: str, title: str, help_text: str) -> None:
     )
 
 
+JOURNEY_STEPS = [
+    (1, "Chọn lỗ hổng", "Chọn CWE và vị trí cần xem."),
+    (2, "Xem bằng chứng", "Đọc cảnh báo scanner và tri thức."),
+    (3, "Hỏi Agent", "Nhận giải thích theo đúng ngữ cảnh."),
+    (4, "Duyệt phép thử", "Từ chối hoặc duyệt trước khi gửi."),
+    (5, "Phản hồi đã lọc", "Xem kết quả đã che và đã cách ly."),
+    (6, "Xuất / đánh giá", "Xem đúng–sai và tải báo cáo."),
+]
+
+
+def _guided_active() -> bool:
+    return bool(st.session_state.get("guided_active"))
+
+
+def _guided_step() -> int:
+    return int(st.session_state.get("guided_step") or 0)
+
+
+def start_guided_demo() -> None:
+    st.session_state["guided_active"] = True
+    st.session_state["guided_step"] = 1
+    st.session_state["approval_state"] = "pending"
+    st.session_state.pop("probe_result", None)
+
+
+def exit_guided_demo() -> None:
+    st.session_state["guided_active"] = False
+    st.session_state["guided_step"] = 0
+
+
+def set_guided_step(step: int) -> None:
+    st.session_state["guided_active"] = True
+    st.session_state["guided_step"] = step
+
+
+def coach(step: int, text: str) -> bool:
+    if _guided_active() and _guided_step() == step:
+        st.markdown(f'<div class="coach">{text}</div>', unsafe_allow_html=True)
+        return True
+    return False
+
+
 def journey_strip(active_steps: set[int] | None = None) -> None:
-    active_steps = active_steps or set()
-    steps = [
-        (1, "Chọn lỗ hổng", "Chọn CWE và vị trí cần xem."),
-        (2, "Kiểm tra bằng chứng", "Đọc cảnh báo scanner và KB."),
-        (3, "Hỏi Sentinel", "Nhận giải thích theo đúng ngữ cảnh."),
-        (4, "Xuất báo cáo", "Tải JSONL để review hoặc lưu trữ."),
-    ]
-    cards = "".join(
-        f'<div class="journey-step {"active" if number in active_steps else ""}">'
-        f'<div class="journey-number">{number}</div><div class="journey-label">{label}</div>'
-        f'<div class="journey-copy">{copy}</div></div>'
-        for number, label, copy in steps
-    )
-    st.markdown(f'<div class="journey">{cards}</div>', unsafe_allow_html=True)
+    current = _guided_step() if _guided_active() else 0
+    if active_steps is None and current:
+        active_steps = {current}
+        completed = set(range(1, current))
+    elif active_steps is None:
+        active_steps, completed = set(), set()
+    else:
+        completed = {item for item in range(1, 7) if item not in active_steps and item < min(active_steps, default=0)}
+    cards = []
+    for number, label, copy in JOURNEY_STEPS:
+        state = "active" if number in active_steps else ("done" if number in completed else "")
+        cards.append(
+            f'<div class="journey-step {state}">'
+            f'<div class="journey-number">{number}</div><div class="journey-label">{label}</div>'
+            f'<div class="journey-copy">{copy}</div></div>'
+        )
+    st.markdown(f'<div class="journey">{"".join(cards)}</div>', unsafe_allow_html=True)
+    if _guided_active():
+        exit_col, _ = st.columns([1, 3])
+        if exit_col.button("Thoát demo", key="exit-guided"):
+            exit_guided_demo()
+            st.rerun()
 
 
 def severity_chip(severity: str) -> str:
@@ -388,21 +476,27 @@ def dashboard() -> None:
         "Security analysis workspace",
         "Từ cảnh báo scanner đến báo cáo dễ kiểm tra",
         "Sentinel gom các cảnh báo liên quan, đặt bằng chứng và kiến thức bảo mật cạnh nhau, "
-        "sau đó giúp bạn hiểu hoặc xuất báo cáo cho từng lỗ hổng.",
+        "giúp bạn hỏi Agent, duyệt một phép thử qua Gateway, rồi xem phản hồi đã lọc.",
         hero=True,
     )
 
-    start, sample = st.columns([1, 1])
+    start, sample, guided = st.columns([1, 1, 1])
     if start.button("Bắt đầu phân tích", type="primary", width="stretch"):
-        st.switch_page(analysis_page)
-    sample_group = next((group for group in groups if group["expected_cwe"] == "CWE-327"), groups[0] if groups else None)
-    if sample.button("Mở ví dụ CWE-327", width="stretch", disabled=sample_group is None):
+        st.switch_page(findings_page)
+    sample_group = next((group for group in groups if group["expected_cwe"] == "CWE-89"), None)
+    sample_group = sample_group or next((group for group in groups if group["expected_cwe"] == "CWE-327"), groups[0] if groups else None)
+    if sample.button("Mở ví dụ CWE-89", width="stretch", disabled=sample_group is None):
         if sample_group:
             st.session_state["selected_group_id"] = sample_group["analysis_group_id"]
-        st.switch_page(analysis_page)
+        st.switch_page(findings_page)
+    if guided.button("Chạy demo có hướng dẫn", width="stretch"):
+        if sample_group:
+            st.session_state["selected_group_id"] = sample_group["analysis_group_id"]
+        start_guided_demo()
+        st.switch_page(findings_page)
 
-    section_intro("Luồng sử dụng", "Bốn bước để hoàn thành một lượt phân tích", "Bạn không cần đọc raw scanner output trước khi bắt đầu.")
-    journey_strip()
+    section_intro("Luồng sử dụng", "Sáu bước để hoàn thành một lượt phân tích và kiểm chứng", "Bạn không cần đọc raw scanner output trước khi bắt đầu.")
+    journey_strip({1} if not _guided_active() else None)
 
     baseline_path = WEEK3 / "baseline.json"
     baseline = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.exists() else {}
@@ -416,7 +510,7 @@ def dashboard() -> None:
     metric_columns[1].metric("Cảnh báo scanner", len(observations))
     metric_columns[2].metric("Nhóm để phân tích", len(groups))
     metric_columns[3].metric(
-        "9Router smoke test",
+        "LLM smoke test",
         f"{real_metrics.get('successful', 0)}/{real_metrics.get('requested', 0)}",
         help="Smoke test xác nhận luồng LLM trên một mẫu nhỏ, không đại diện cho toàn bộ 99 nhóm.",
     )
@@ -444,7 +538,7 @@ def dashboard() -> None:
 
     cwe_counts = Counter(group["expected_cwe"] for group in groups)
     section_intro("Gợi ý", "Một số loại lỗ hổng để mở thử", "Chọn một ví dụ để đi thẳng tới bằng chứng, hỏi đáp và báo cáo.")
-    top_cwes = ["CWE-327", "CWE-89", "CWE-79"]
+    top_cwes = ["CWE-89", "CWE-327", "CWE-79"]
     suggestion_columns = st.columns(3)
     for column, cwe in zip(suggestion_columns, top_cwes):
         group = next((item for item in groups if item["expected_cwe"] == cwe), None)
@@ -454,7 +548,7 @@ def dashboard() -> None:
                 st.caption(f"{cwe_counts[cwe]} nhóm trong corpus hiện tại")
                 if st.button(f"Phân tích {cwe}", key=f"dashboard-{cwe}", width="stretch"):
                     st.session_state["selected_group_id"] = group["analysis_group_id"]
-                    st.switch_page(analysis_page)
+                    st.switch_page(findings_page)
 
     with st.expander("Phạm vi và cách đọc dashboard"):
         st.write(
@@ -466,13 +560,20 @@ def dashboard() -> None:
 
 def analysis_workspace() -> None:
     page_intro(
-        "Phân tích một lỗ hổng",
-        "Chọn, kiểm tra, hỏi và xuất báo cáo trên cùng một trang",
-        "Mọi câu trả lời đều bị giới hạn bởi scanner evidence, tài liệu KB và report của nhóm bạn đang chọn.",
+        "Lỗ hổng và bằng chứng",
+        "Chọn một lỗ hổng rồi xem máy quét đã thấy gì",
+        "Lọc theo CWE, chọn một Benchmark test, rồi đọc observation và tài liệu tri thức liên quan.",
     )
-    journey_strip({1, 2, 3, 4})
+    journey_strip({1, 2} if not _guided_active() else None)
+    coach(1, "Bước 1 — bấm Dùng ví dụ CWE-89 để chọn lỗ hổng mẫu.")
 
     section_intro("Bước 1", "Chọn lỗ hổng cần xem", "Lọc theo CWE trước, sau đó chọn một Benchmark test cụ thể.")
+    example = next((group for group in groups if group["expected_cwe"] == "CWE-89"), None)
+    if example and st.button("Dùng ví dụ CWE-89", type="primary" if _guided_step() == 1 else "secondary", width="stretch"):
+        st.session_state["selected_group_id"] = example["analysis_group_id"]
+        if _guided_active() and _guided_step() == 1:
+            set_guided_step(2)
+        st.rerun()
     cwe_options = sorted(
         {group["expected_cwe"] for group in groups},
         key=lambda value: int(value.split("-")[1]),
@@ -536,11 +637,17 @@ def analysis_workspace() -> None:
     knowledge = search_knowledge(DB, f"{selected_group['expected_cwe']} {selected_group['category']}", 3)
 
     section_intro("Bước 2", "Kiểm tra bằng chứng và kiến thức tham chiếu", "Scanner nói gì, ở đâu và Sentinel dùng tài liệu nào để giải thích.")
+    coach(2, "Bước 2 — mở bằng chứng scanner đầu tiên, rồi tiếp tục sang hỏi Agent.")
+    if _guided_active() and _guided_step() == 2:
+        st.session_state["guided_expand_evidence"] = True
     evidence_col, knowledge_col = st.columns([1.2, 1])
     with evidence_col:
         st.markdown("#### Bằng chứng scanner")
-        for item in selected_group["evidence_items"]:
-            with st.expander(f"{item['tool']} · dòng {item.get('line_start') or 'không xác định'}"):
+        for index, item in enumerate(selected_group["evidence_items"]):
+            with st.expander(
+                f"{item['tool']} · dòng {item.get('line_start') or 'không xác định'}",
+                expanded=index == 0 and bool(st.session_state.get("guided_expand_evidence")),
+            ):
                 st.caption(f"{item['file_or_url']} · {item['observation_id']}")
                 st.code(item.get("excerpt") or "Scanner không cung cấp đoạn mã trong artifact này.", language=None)
     with knowledge_col:
@@ -558,18 +665,61 @@ def analysis_workspace() -> None:
             "Đây không phải kết luận rằng finding đã được xác nhận trong một repository thông thường."
         )
 
+    next_col, kb_col = st.columns(2)
+    if next_col.button("Tiếp: hỏi Agent", type="primary", width="stretch"):
+        if _guided_active() and _guided_step() == 2:
+            set_guided_step(3)
+        st.switch_page(agent_page)
+    if kb_col.button("Xem thêm trong kho tri thức", width="stretch"):
+        st.session_state["kb-search-query"] = f"{selected_group['expected_cwe']} {selected_name}"
+        st.switch_page(knowledge_page)
+
+
+def agent_workspace() -> None:
+    page_intro(
+        "Phân tích của Agent",
+        "Hỏi Sentinel và đọc báo cáo của lỗ hổng đang chọn",
+        "Mọi câu trả lời đều bị giới hạn bởi scanner evidence, tài liệu KB và report của nhóm bạn đang chọn.",
+    )
+    journey_strip({3} if not _guided_active() else None)
+    selected_group = next((group for group in groups if group["analysis_group_id"] == st.session_state.get("selected_group_id")), None)
+    if selected_group is None:
+        st.markdown('<div class="trust-note">Chọn một lỗ hổng ở trang Lỗ hổng &amp; bằng chứng trước khi hỏi Agent.</div>', unsafe_allow_html=True)
+        if st.button("Chọn lỗ hổng", type="primary"):
+            st.switch_page(findings_page)
+        return
+    selected_name = cwe_name(selected_group["expected_cwe"], selected_group["category"])
+    st.markdown(
+        f"""
+        <div class="context-card">
+          <div class="context-title">{selected_group['expected_cwe']} — {selected_name}</div>
+          <div class="context-meta">
+            {selected_group['benchmark_test_id']} · {len(selected_group['observation_ids'])} scanner observation
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    run = run_choice()
+    artifact = load_ready_artifact(run)
+    reports = artifact.get("reports", []) if artifact.get("state") != "corrupt" else []
+    matching_reports = [report for report in reports if report["analysis_group_id"] == selected_group["analysis_group_id"]]
+    report = matching_reports[-1] if matching_reports else None
+    knowledge = search_knowledge(DB, f"{selected_group['expected_cwe']} {selected_group['category']}", 3)
+
     section_intro("Bước 3", "Hỏi Sentinel về lỗ hổng này", "Chọn câu hỏi mẫu hoặc nhập câu hỏi riêng. Câu trả lời luôn bám theo nhóm đang hiển thị.")
+    coach(3, "Bước 3 — bấm Giải thích dễ hiểu để xem Agent trả lời từ bằng chứng đã chọn.")
     if READONLY:
         chat_provider = "offline_artifact"
         st.caption("Chế độ public: trả lời từ artifact và bằng chứng có sẵn, không gọi model mới.")
     else:
         provider_label = st.radio(
             "Nguồn trả lời",
-            ["Dữ liệu có sẵn", "9Router"],
+            ["Dữ liệu có sẵn", "OpenCode"],
             horizontal=True,
-            help="9Router tạo một grounded response mới và có thể sử dụng quota đã cấu hình.",
+            help="OpenCode tạo một grounded response mới và có thể sử dụng quota đã cấu hình.",
         )
-        chat_provider = "nine_router" if provider_label == "9Router" else "offline_artifact"
+        chat_provider = "nine_router" if provider_label == "OpenCode" else "offline_artifact"
 
     chat_key = f"chat-{selected_group['analysis_group_id']}"
     st.session_state.setdefault(chat_key, [])
@@ -594,8 +744,16 @@ def analysis_workspace() -> None:
     ]
     for column, (label, prompt) in zip(prompt_columns, question_specs):
         with column:
-            if st.button(label, key=f"prompt-{label}-{selected_group['analysis_group_id']}", width="stretch"):
+            is_explain = label == "Giải thích dễ hiểu"
+            if st.button(
+                label,
+                key=f"prompt-{label}-{selected_group['analysis_group_id']}",
+                type="primary" if is_explain and _guided_step() == 3 else "secondary",
+                width="stretch",
+            ):
                 suggested_question = prompt
+                if _guided_active() and _guided_step() == 3 and is_explain:
+                    st.session_state["guided_advance_after_answer"] = True
 
     for message in st.session_state[chat_key]:
         with st.chat_message(message["role"]):
@@ -632,6 +790,8 @@ def analysis_workspace() -> None:
             st.session_state[chat_key].append(
                 {"role": "assistant", "content": content, "citations": answer.citations, "metadata": metadata}
             )
+            if st.session_state.pop("guided_advance_after_answer", False):
+                set_guided_step(4)
             st.rerun()
         except Exception as exc:
             st.error("Sentinel chưa thể tạo câu trả lời. Bạn vẫn có thể xem bằng chứng và báo cáo ở trang này.")
@@ -671,7 +831,8 @@ def analysis_workspace() -> None:
             provider_name = st.selectbox(
                 "Provider",
                 ["fake", "nine_router"],
-                help="nine_router có thể sử dụng quota hoặc phát sinh chi phí theo cấu hình của bạn.",
+                format_func=lambda value: "OpenCode" if value == "nine_router" else "FakeProvider",
+                help="OpenCode có thể sử dụng quota hoặc phát sinh chi phí theo cấu hình của bạn.",
             )
             tag_default = f"ui-{selected_group['benchmark_test_id'].lower()}"
             command = [
@@ -714,6 +875,11 @@ def analysis_workspace() -> None:
                         pass
                     st.cache_data.clear()
                     st.rerun()
+
+    if st.button("Tiếp: duyệt phép thử", type="primary", width="stretch"):
+        if _guided_active() and _guided_step() in {3, 4}:
+            set_guided_step(4)
+        st.switch_page(verify_page)
 
 
 def reports_page() -> None:
@@ -809,6 +975,7 @@ def _knowledge_category_counts() -> dict[str, int]:
 def knowledge_base_page() -> None:
     category_counts = _knowledge_category_counts()
     total_docs = sum(category_counts.values())
+    journey_strip({2} if not _guided_active() else None)
     page_intro(
         "Kho tri thức bảo mật",
         "Tìm hướng giải thích và khắc phục theo ý nghĩa",
@@ -963,7 +1130,7 @@ def data_and_evaluation() -> None:
         scope_columns[2].metric("Week 2 canonical", len(week2_groups))
         scope_columns[3].metric("Week 3 analysis groups", len(groups))
         st.markdown("#### Pipeline")
-        journey_strip({1, 2, 3, 4})
+        journey_strip()
         st.markdown("#### Scanner counts")
         st.dataframe(
             [{"Scanner": tool, "Observations": count} for tool, count in baseline.get("scanner_counts", {}).items()],
@@ -1049,11 +1216,222 @@ def data_and_evaluation() -> None:
                 st.caption("Run được đánh giá không có controlled failure.")
 
 
-dashboard_page = st.Page(dashboard, title="Tổng quan", icon="🏠", default=True)
-analysis_page = st.Page(analysis_workspace, title="Phân tích lỗ hổng", icon="🛡️")
-knowledge_page = st.Page(knowledge_base_page, title="Knowledge Base", icon="📚")
-reports_nav_page = st.Page(reports_page, title="Báo cáo", icon="📄")
-data_page = st.Page(data_and_evaluation, title="Dữ liệu & kiểm định", icon="🔎")
+def _selected_group() -> dict | None:
+    return next((group for group in groups if group["analysis_group_id"] == st.session_state.get("selected_group_id")), None)
+
+
+def _propose_request(group: dict | None) -> ProposedRequest:
+    if group and group["expected_cwe"] == "CWE-89":
+        return ProposedRequest(
+            endpoint="/login",
+            method="POST",
+            payload={"user": "wrong-type-int"},
+            purpose="Kiểm tra endpoint đăng nhập có chấp nhận dữ liệu sai kiểu không.",
+        )
+    return ProposedRequest(
+        endpoint="/health",
+        method="GET",
+        payload=None,
+        purpose="Kiểm tra Gateway và endpoint còn phản hồi.",
+    )
+
+
+def _replay_filtered_response() -> dict:
+    proof_path = WEEK5 / "redaction-proof.json"
+    scan_path = WEEK5 / "injection-scan.json"
+    proof = json.loads(proof_path.read_text(encoding="utf-8")) if proof_path.exists() else {}
+    scan = json.loads(scan_path.read_text(encoding="utf-8")) if scan_path.exists() else {}
+    return {
+        "source": "replay",
+        "status": 200,
+        "route": "echo",
+        "body": proof.get("redacted_body") or "Không có artifact phản hồi đã lọc.",
+        "redacted": True,
+        "injection": bool(scan.get("untrusted_sample", {}).get("flagged")),
+        "patterns": scan.get("untrusted_sample", {}).get("patterns") or [],
+    }
+
+
+def verify_page() -> None:
+    page_intro(
+        "Kiểm chứng an toàn",
+        "Duyệt phép thử trước khi gửi qua Gateway",
+        "Agent chỉ chọn route và payload từ danh sách Gateway cho phép. Từ chối nghĩa là request không được gửi.",
+    )
+    journey_strip({4, 5} if not _guided_active() else None)
+    group = _selected_group()
+    request = _propose_request(group)
+    summary = request.summary()
+    state = st.session_state.get("approval_state", "pending")
+
+    st.markdown('<div class="proposal-card">', unsafe_allow_html=True)
+    section_intro("Đề xuất", "Phép thử từ danh sách Gateway", "Payload phá hoại không nằm trong danh sách.")
+    if group:
+        st.caption(f"Đang gắn với {group['expected_cwe']} · {group['benchmark_test_id']}")
+    else:
+        st.caption("Chưa chọn lỗ hổng — dùng phép thử health mặc định.")
+    st.write(request.purpose)
+    st.code(f"{request.method} {request.endpoint}", language=None)
+    st.caption("route_id / payload_id lấy từ menu Gateway, không do model tự viết URL.")
+    if request.payload is not None:
+        with st.expander("Payload sẽ gửi"):
+            st.json(summary.get("payload"))
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    card_state = "rejected" if state == "rejected" else ("approved" if state == "approved" else "")
+    st.markdown(f'<div class="approval-card {card_state}">', unsafe_allow_html=True)
+    section_intro("Phê duyệt", "Gửi request này qua Gateway?", "Không có đường bỏ qua. Reject là quyết định cuối của lượt này.")
+    if state == "pending" and _guided_step() == 4:
+        coach(4, "Bước 4 — bấm Từ chối trước để chứng minh request không được gửi.")
+    elif state == "rejected" and _guided_step() == 4:
+        coach(4, "Bước 4 — đã chặn. Bây giờ bấm Duyệt và gửi để xem phản hồi đã lọc.")
+
+    reject_col, approve_col = st.columns(2)
+    if reject_col.button("Từ chối", type="primary" if state == "pending" else "secondary", width="stretch", disabled=state == "approved"):
+        log_path = None if READONLY else WEEK5 / "ui-approval-events.jsonl"
+        try:
+            ApprovalGate(log_path=log_path).require(request, prompter=lambda _req: (False, "operator declined in UI"))
+        except ApprovalRejected:
+            st.session_state["approval_state"] = "rejected"
+            st.session_state.pop("probe_result", None)
+            st.rerun()
+    if approve_col.button("Duyệt và gửi", type="primary" if state == "rejected" else "secondary", width="stretch", disabled=state == "approved"):
+        log_path = None if READONLY else WEEK5 / "ui-approval-events.jsonl"
+        ApprovalGate(log_path=log_path).require(request, prompter=lambda _req: (True, "operator approved in UI"))
+        st.session_state["approval_state"] = "approved"
+        if READONLY:
+            st.session_state["probe_result"] = _replay_filtered_response()
+        else:
+            gateway = os.getenv("SAFE_PROBE_GATEWAY_URL")
+            if gateway:
+                st.session_state["probe_result"] = {
+                    "source": "gateway",
+                    "status": None,
+                    "route": request.endpoint,
+                    "body": "Local mode: nối safe_probe khi Gateway đang chạy. Bản ghi demo dùng artifact đã lọc.",
+                    "redacted": True,
+                    "injection": False,
+                    "patterns": [],
+                }
+                st.session_state["probe_result"] = _replay_filtered_response() | {"source": "gateway-or-replay"}
+            else:
+                st.session_state["probe_result"] = _replay_filtered_response()
+        if _guided_active():
+            set_guided_step(5)
+        st.rerun()
+    if state == "rejected":
+        st.markdown("**Request không được gửi.**")
+    elif state == "approved":
+        st.caption("Đã gửi qua Gateway." if not READONLY else "Đang xem bản ghi đã lưu. Không gọi Gateway.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    result = st.session_state.get("probe_result")
+    st.markdown('<div class="filtered-card">', unsafe_allow_html=True)
+    section_intro("Phản hồi đã lọc", "Chỉ hiện bản đã che và đã cách ly", "Không có nút xem dữ liệu gốc.")
+    if state == "rejected" and not result:
+        st.caption("Chưa có phản hồi vì request không được gửi.")
+    elif not result:
+        st.caption("Duyệt phép thử để xem phản hồi.")
+    else:
+        coach(5, "Bước 5 — đây là kết quả đã lọc. Bấm Xem đánh giá khi đã đọc xong.")
+        if result.get("redacted"):
+            st.markdown('<span class="badge badge-success">Đã che dữ liệu nhạy cảm</span>', unsafe_allow_html=True)
+        if result.get("injection"):
+            st.markdown('<span class="badge badge-warning">Phát hiện chỉ dẫn lạ — đã cách ly</span>', unsafe_allow_html=True)
+        verdict = scan_injection(result.get("body") or "")
+        st.code(result.get("body") or "", language=None)
+        with st.expander("Chi tiết kỹ thuật"):
+            st.write(f"Nguồn: {result.get('source')} · status: {result.get('status')} · route: {result.get('route')}")
+            if result.get("patterns") or verdict.patterns:
+                st.caption("Patterns: " + ", ".join(result.get("patterns") or verdict.patterns))
+            st.caption("API key và secret không được ghi ra UI.")
+        if st.button("Xem đánh giá", type="primary", width="stretch"):
+            if _guided_active():
+                set_guided_step(6)
+            st.switch_page(evaluation_page)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def evaluation_page() -> None:
+    page_intro(
+        "Đánh giá độ chính xác",
+        "So câu trả lời của Agent với đáp án nhóm tự viết",
+        "Ma trận dưới đây dùng số liệu đã có trong artifact. Bộ 5–10 case Week 6 sẽ thay số này khi có expected answers.",
+    )
+    journey_strip({6} if not _guided_active() else None)
+    coach(6, "Bước 6 — xem đúng–sai, rồi mở Chạy & số liệu hoặc tải báo cáo.")
+    metrics_path = WEEK3 / "evaluation/agent-metrics.json"
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8")) if metrics_path.exists() else {}
+    real = metrics.get("real", {})
+    fake = metrics.get("fake", {})
+    tp = int(real.get("successful") or fake.get("successful") or 0)
+    fn = int(real.get("failed") or fake.get("failed") or 0)
+    fp = 0
+    tn = 0
+    total = max(tp + tn + fp + fn, 1)
+    cells = st.columns(2)
+    with cells[0]:
+        st.markdown(f'<div class="matrix-cell"><div class="n">{tp}</div><div class="l">True positive — Agent đúng khi có lỗ hổng</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="matrix-cell"><div class="n">{fn}</div><div class="l">False negative — Agent bỏ sót</div></div>', unsafe_allow_html=True)
+    with cells[1]:
+        st.markdown(f'<div class="matrix-cell"><div class="n">{fp}</div><div class="l">False positive — Agent báo nhầm</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="matrix-cell"><div class="n">{tn}</div><div class="l">True negative — Agent đúng khi không có lỗ hổng</div></div>', unsafe_allow_html=True)
+    kpis = st.columns(3)
+    precision = tp / max(tp + fp, 1)
+    recall = tp / max(tp + fn, 1)
+    accuracy = (tp + tn) / total
+    kpis[0].metric("Precision", f"{precision:.0%}")
+    kpis[1].metric("Recall", f"{recall:.0%}")
+    kpis[2].metric("Accuracy", f"{accuracy:.0%}")
+    st.caption("Đây là số từ smoke/fake run hiện có, chưa phải bộ đánh giá 5–10 case có expected answers.")
+    if st.button("Xem số liệu vận hành", type="primary"):
+        st.switch_page(metrics_page)
+
+
+def metrics_page() -> None:
+    page_intro(
+        "Chạy và số liệu",
+        "Thời gian, request, duyệt và lỗi của các bước đã chạy",
+        "Các số dưới đây lấy từ artifact đã redact. Public mode không gọi OpenCode hay Gateway.",
+    )
+    journey_strip({6} if not _guided_active() else None)
+    week5 = json.loads((WEEK5 / "metrics.json").read_text(encoding="utf-8")) if (WEEK5 / "metrics.json").exists() else {}
+    approval = week5.get("approval", {})
+    redaction = week5.get("redaction", {})
+    injection = week5.get("injection", {})
+    tiles = st.columns(5)
+    tiles[0].metric("Request đã ghi", approval.get("total", 0))
+    tiles[1].metric("Duyệt", approval.get("approve", 0))
+    tiles[2].metric("Từ chối", approval.get("reject", 0))
+    tiles[3].metric("Đã che", redaction.get("total_masked", 0))
+    tiles[4].metric("Injection flagged", 1 if injection.get("untrusted_flagged") else 0)
+    if week5:
+        with st.expander("Chi tiết kỹ thuật"):
+            st.json(redact_obj(week5))
+    run = run_choice()
+    artifact = load_ready_artifact(run)
+    reports = artifact.get("reports", []) if artifact.get("state") == "ready" else []
+    if reports:
+        st.download_button(
+            "Tải báo cáo JSONL",
+            export_reports_jsonl(reports),
+            "sentinel-reports.jsonl",
+            "application/x-ndjson",
+            type="primary",
+        )
+        if _guided_active():
+            st.caption("Demo đã đủ 6 bước. Bạn có thể thoát demo hoặc xem lại từng trang.")
+
+
+findings_page = st.Page(analysis_workspace, title="Lỗ hổng & bằng chứng", icon=":material/bug_report:")
+agent_page = st.Page(agent_workspace, title="Phân tích của Agent", icon=":material/psychology:")
+knowledge_page = st.Page(knowledge_base_page, title="Tra cứu tri thức", icon=":material/menu_book:")
+verify_page = st.Page(verify_page, title="Kiểm chứng an toàn", icon=":material/verified_user:")
+evaluation_page = st.Page(evaluation_page, title="Đánh giá độ chính xác", icon=":material/analytics:")
+metrics_page = st.Page(metrics_page, title="Chạy & số liệu", icon=":material/monitoring:")
+reports_nav_page = st.Page(reports_page, title="Báo cáo", icon=":material/description:")
+data_page = st.Page(data_and_evaluation, title="Dữ liệu & kiểm định", icon=":material/fact_check:")
+dashboard_page = st.Page(dashboard, title="Tổng quan", icon=":material/home:", default=True)
 
 with st.sidebar:
     st.markdown('<div class="sidebar-brand">Project Sentinel</div>', unsafe_allow_html=True)
@@ -1061,16 +1439,23 @@ with st.sidebar:
         '<div class="sidebar-copy">Security Analysis Agent cho 100 OWASP BenchmarkJava test case.</div>',
         unsafe_allow_html=True,
     )
+    if st.button("Chạy demo có hướng dẫn", type="primary", width="stretch"):
+        sample = next((group for group in groups if group["expected_cwe"] == "CWE-89"), groups[0] if groups else None)
+        if sample:
+            st.session_state["selected_group_id"] = sample["analysis_group_id"]
+        start_guided_demo()
+        st.switch_page(findings_page)
 
 navigation = st.navigation(
     {
-        "BẮT ĐẦU": [dashboard_page, analysis_page, knowledge_page, reports_nav_page],
-        "THAM CHIẾU": [data_page],
+        "PHÂN TÍCH": [dashboard_page, findings_page, knowledge_page, agent_page],
+        "KIỂM CHỨNG": [verify_page],
+        "KẾT QUẢ": [evaluation_page, metrics_page, reports_nav_page, data_page],
     }
 )
 
 with st.sidebar:
-    mode_text = "Public · dùng artifact có sẵn" if READONLY else "Local · có thể gọi 9Router"
+    mode_text = "Public · dùng artifact có sẵn" if READONLY else "Local · có thể gọi OpenCode"
     st.markdown(f'<div class="sidebar-status">● {mode_text}</div>', unsafe_allow_html=True)
 
 navigation.run()

@@ -12,7 +12,7 @@ Review theo thứ tự dưới đây là đủ. Public demo replay artifact đã
 
 ## 2. Live demo
 
-[sentinel-benchmarkjava.streamlit.app](https://sentinel-benchmarkjava.streamlit.app/)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://sentinel-benchmarkjava.streamlit.app/)
 
 1. Sidebar → nhóm **KIỂM CHỨNG** → **Kiểm chứng an toàn**.
 2. Xem đề xuất request (endpoint, payload, purpose).

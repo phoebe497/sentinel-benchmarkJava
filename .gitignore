@@ -19,3 +19,5 @@ artifacts/week-5/ui-approval-events.jsonl
 *.db
 .scan-targets/
 preview.md
+_bmad-output/
+_bmad/config.user.toml

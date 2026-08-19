@@ -71,7 +71,7 @@ def provider(name: str):
     if name == "fake":
         return FakeProvider()
     load_dotenv(ROOT / ".env")
-    return NineRouterProvider(base_url=os.getenv("NINE_ROUTER_BASE_URL", "http://127.0.0.1:20128/v1"), model=os.getenv("NINE_ROUTER_MODEL", ""), api_key=os.getenv("NINE_ROUTER_API_KEY", ""), timeout=float(os.getenv("NINE_ROUTER_TIMEOUT_SECONDS", "60")), max_retries=int(os.getenv("NINE_ROUTER_MAX_RETRIES", "1")))
+    return NineRouterProvider.from_env()
 
 
 def generate_report(real_tag: str, output: Path) -> None:

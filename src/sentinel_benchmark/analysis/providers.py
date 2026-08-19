@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from typing import Any, Protocol
 
 import httpx
+
+from sentinel_benchmark.guardrails.redaction import redact_obj
 
 
 class Provider(Protocol):
@@ -130,12 +133,32 @@ class NineRouterProvider:
 
     def __init__(self, *, base_url: str, model: str, api_key: str, timeout: float = 60, max_retries: int = 1):
         if not api_key:
-            raise ValueError("NINE_ROUTER_API_KEY is required")
+            raise ValueError("OPENCODE_API_KEY is required")
+        if not model:
+            raise ValueError("CUSTOM_SCAN_MODEL is required")
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
         self.timeout = timeout
         self.max_retries = max_retries
+
+    @classmethod
+    def from_env(cls) -> "NineRouterProvider":
+        """Build the OpenAI-compatible provider from the OpenCode zen gateway.
+
+        Every outbound LLM call from this class goes to OPENCODE_BASE_URL with
+        OPENCODE_API_KEY. Local 9Router variables are not read.
+        """
+        api_key = os.getenv("OPENCODE_API_KEY", "")
+        model = os.getenv("CUSTOM_SCAN_MODEL", "")
+        base_url = os.getenv("OPENCODE_BASE_URL", "https://opencode.ai/zen/go/v1")
+        return cls(
+            base_url=base_url,
+            model=model,
+            api_key=api_key,
+            timeout=float(os.getenv("OPENCODE_TIMEOUT_SECONDS") or os.getenv("NINE_ROUTER_TIMEOUT_SECONDS", "60")),
+            max_retries=int(os.getenv("OPENCODE_MAX_RETRIES") or os.getenv("NINE_ROUTER_MAX_RETRIES", "1")),
+        )
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -152,9 +175,15 @@ class NineRouterProvider:
 
     def analyze(self, *, system_prompt: str, user_payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         started = time.perf_counter()
-        payload = {"model": self.model, "temperature": 0, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)}]}
+        # Redaction sink: mask any sensitive value before it leaves for the LLM.
+        safe_payload = redact_obj(user_payload)
+        payload = {"model": self.model, "temperature": 0, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": json.dumps(safe_payload, ensure_ascii=False)}]}
         response = httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=payload, timeout=self.timeout)
         response.raise_for_status()
         body = parse_chat_response(response)
         candidate = parse_json_message(body["choices"][0]["message"])
         return candidate, {"request_id": body.get("id"), "model": body.get("model", self.model), "latency_ms": round((time.perf_counter() - started) * 1000), "token_usage": body.get("usage"), "retry_count": 0}
+
+
+# Compatibility alias: all live LLM calls go through the OpenCode zen gateway.
+OpenCodeProvider = NineRouterProvider

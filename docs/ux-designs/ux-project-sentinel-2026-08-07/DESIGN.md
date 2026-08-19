@@ -2,7 +2,7 @@
 name: Sentinel Analysis Workspace
 description: A calm, evidence-first interface for understanding scanner findings and producing traceable security reports.
 status: final
-updated: 2026-08-07
+updated: 2026-08-19
 colors:
   surface-base: '#F6F8FA'
   surface-raised: '#FFFFFF'
@@ -106,14 +106,19 @@ Controls and compact surfaces use `{rounded.md}`. Main context cards use `{round
 ## Components
 
 - **Page introduction** — one eyebrow, one clear title and a two-line explanation. No duplicate title in the sidebar.
-- **Journey strip** — four compact numbered steps: choose, inspect, ask, export. The current page highlights the applicable steps without pretending that every step is a completed state.
+- **Journey strip** — six numbered steps: Chọn → Xem bằng chứng → Hỏi Agent → Duyệt phép thử → Phản hồi đã lọc → Xuất / đánh giá. The current step is teal; completed steps stay readable; future steps stay muted. The strip is a progress indicator, not navigation.
+- **Guided spotlight** — in Guided Demo only. A teal 2px ring (`{colors.primary}`) plus a one-line coach label sits on the single control the user must click. No other control is ringed. After that click, the step advances (and the page may change).
 - **Finding selector** — CWE filter followed by a concrete Benchmark test selection. Help text explains why the test is relevant.
 - **Context card** — vulnerability name, test ID, scanner count and observation count. It replaces scattered badges and comments.
 - **Evidence row** — scanner and location first; excerpt is disclosed in an expander. Missing excerpts use neutral copy, not a warning block.
 - **Suggested question** — action-labelled button with a specific vulnerability target. Buttons wrap or stack instead of truncating.
 - **Knowledge result** — ranked title, document ID and match signal in the expander label; content, tags and source appear after disclosure.
 - **Report card** — vulnerability and severity first, plain-language explanation next, technical provenance last.
-- **Metric** — used only for decision-relevant counts. Technical integrity metrics live on the advanced evaluation surface.
+- **Proposed-request card** — one plain-language purpose, then `method` + path, then `route_id` / `payload_id` from the Gateway menu. Help text: the agent only picks from allowed routes.
+- **Approval card** — purpose first; endpoint and payload in code; two actions: **Từ chối** (danger outline, default focus) and **Duyệt và gửi** (`{colors.primary}`). No third button. Rejected state uses `{colors.danger-soft}` with the sentence “Request không được gửi.”
+- **Filtered-response panel** — redacted body only. Text badges: “Đã che dữ liệu nhạy cảm” (`{colors.success-soft}`) and/or “Phát hiện chỉ dẫn lạ — đã cách ly” (`{colors.warning-soft}`). No “view original” control.
+- **Metric** — at most five decision-relevant counts. Technical integrity metrics stay on the evaluation / data surface.
+- **Evaluation matrix** — 2×2 TP/TN/FP/FN with text labels plus three KPI tiles (Precision, Recall, Accuracy). Color is supplemental.
 
 ## Do's and Don'ts
 
@@ -125,3 +130,5 @@ Controls and compact surfaces use `{rounded.md}`. Main context cards use `{round
 | Use one primary action in each section | Present several equal-weight buttons without an obvious next step |
 | Explain limitations in neutral language | Use alarming callouts for ordinary benchmark coverage states |
 | Keep Vietnamese labels consistent | Mix Vietnamese and English for ordinary UI concepts |
+| Spotlight exactly one Guided Demo control | Auto-play steps or highlight the whole page |
+| Show redacted placeholders in the UI | Offer a “view original secret” toggle |

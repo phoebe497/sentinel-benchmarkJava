@@ -69,7 +69,28 @@ st.markdown(
         --sentinel-ink-muted: #536763;
         --sentinel-surface: #ffffff;
     }
-    .block-container {max-width: 1180px; padding-top: 2rem; padding-bottom: 4rem;}
+    [data-testid="stHeader"] {
+        background: #f6f8fa;
+        min-height: 3.75rem;
+        overflow: visible !important;
+    }
+    [data-testid="stHeader"] * {
+        overflow: visible !important;
+        text-overflow: unset !important;
+        white-space: normal !important;
+    }
+    .block-container {
+        max-width: 1180px;
+        padding-top: 5.5rem !important;
+        padding-right: 2rem !important;
+        padding-bottom: 4rem;
+        padding-left: 2rem !important;
+        overflow: visible !important;
+    }
+    [data-testid="stMainBlockContainer"],
+    [data-testid="stAppViewContainer"] .main {
+        overflow: visible !important;
+    }
     [data-testid="stSidebar"] {border-right: 1px solid var(--sentinel-border);}
     [data-testid="stMetric"] {
         background: var(--sentinel-surface);
@@ -89,11 +110,15 @@ st.markdown(
     }
     .sentinel-title {
         color: #172321;
-        font-size: clamp(2rem, 4vw, 2.65rem);
+        font-size: clamp(1.65rem, 3.4vw, 2.35rem);
         font-weight: 760;
-        letter-spacing: -.035em;
-        line-height: 1.12;
+        letter-spacing: -.02em;
+        line-height: 1.3;
         margin: 0 0 .7rem;
+        max-width: 100%;
+        overflow: visible;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
     .sentinel-lead {
         color: var(--sentinel-ink-muted);
@@ -117,7 +142,14 @@ st.markdown(
         text-transform: uppercase;
         margin: 2.6rem 0 .25rem;
     }
-    .section-title {font-size: 1.45rem; font-weight: 710; margin: 0 0 .35rem; color: #172321;}
+    .section-title {
+        font-size: 1.45rem;
+        font-weight: 710;
+        margin: 0 0 .35rem;
+        color: #172321;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
     .section-help {color: var(--sentinel-ink-muted); margin: 0 0 1rem; line-height: 1.55;}
     .journey {
         display: grid;
@@ -235,9 +267,9 @@ st.markdown(
     div.stButton > button {border-radius: 9px; min-height: 2.7rem; font-weight: 650;}
     div[data-testid="stExpander"] {border-color: var(--sentinel-border); border-radius: 10px;}
     @media (max-width: 800px) {
-        .block-container {padding-top: 1.2rem;}
+        .block-container {padding-top: 5rem !important; padding-left: 1.1rem !important; padding-right: 1.1rem !important;}
         .journey {grid-template-columns: repeat(2, minmax(0, 1fr));}
-        .sentinel-title {font-size: 2rem;}
+        .sentinel-title {font-size: 1.55rem; line-height: 1.35;}
     }
     @media (max-width: 520px) {
         .journey {grid-template-columns: 1fr;}

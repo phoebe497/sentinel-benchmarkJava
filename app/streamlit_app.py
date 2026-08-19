@@ -334,6 +334,11 @@ def section_intro(kicker: str, title: str, help_text: str) -> None:
     )
 
 
+def plain_block(text: str) -> None:
+    """Show monospaced text without StreamlitSyntaxHighlighter (breaks on Cloud)."""
+    st.text(text or "")
+
+
 JOURNEY_STEPS = [
     (1, "Chọn lỗ hổng", "Chọn CWE và vị trí cần xem."),
     (2, "Xem bằng chứng", "Đọc cảnh báo scanner và tri thức."),
@@ -649,7 +654,7 @@ def analysis_workspace() -> None:
                 expanded=index == 0 and bool(st.session_state.get("guided_expand_evidence")),
             ):
                 st.caption(f"{item['file_or_url']} · {item['observation_id']}")
-                st.code(item.get("excerpt") or "Scanner không cung cấp đoạn mã trong artifact này.", language=None)
+                plain_block(item.get("excerpt") or "Scanner không cung cấp đoạn mã trong artifact này.")
     with knowledge_col:
         st.markdown("#### Kiến thức được truy xuất")
         if not knowledge:
@@ -796,7 +801,7 @@ def agent_workspace() -> None:
         except Exception as exc:
             st.error("Sentinel chưa thể tạo câu trả lời. Bạn vẫn có thể xem bằng chứng và báo cáo ở trang này.")
             with st.expander("Chi tiết lỗi"):
-                st.code(str(exc), language=None)
+                plain_block(str(exc))
 
     chat_actions = st.columns([1, 1])
     transcript = json.dumps(st.session_state[chat_key], ensure_ascii=False, indent=2)
@@ -865,7 +870,7 @@ def agent_workspace() -> None:
                 if completed.returncode:
                     st.error("Không thể tạo báo cáo. Secret và header không được hiển thị.")
                     with st.expander("Chi tiết lỗi từ CLI"):
-                        st.code(completed.stderr[-2000:], language=None)
+                        plain_block(completed.stderr[-2000:])
                 else:
                     st.toast("Báo cáo đã được tạo và kiểm tra checksum.", icon="✅")
                     try:
@@ -1271,7 +1276,7 @@ def verify_page() -> None:
     else:
         st.caption("Chưa chọn lỗ hổng — dùng phép thử health mặc định.")
     st.write(request.purpose)
-    st.code(f"{request.method} {request.endpoint}", language=None)
+    plain_block(f"{request.method} {request.endpoint}")
     st.caption("route_id / payload_id lấy từ menu Gateway, không do model tự viết URL.")
     if request.payload is not None:
         with st.expander("Payload sẽ gửi"):
@@ -1339,7 +1344,7 @@ def verify_page() -> None:
         if result.get("injection"):
             st.markdown('<span class="badge badge-warning">Phát hiện chỉ dẫn lạ — đã cách ly</span>', unsafe_allow_html=True)
         verdict = scan_injection(result.get("body") or "")
-        st.code(result.get("body") or "", language=None)
+        plain_block(result.get("body") or "")
         with st.expander("Chi tiết kỹ thuật"):
             st.write(f"Nguồn: {result.get('source')} · status: {result.get('status')} · route: {result.get('route')}")
             if result.get("patterns") or verdict.patterns:

@@ -359,7 +359,6 @@ def _dast_alerts_without_analysis() -> list[dict[str, Any]]:
 
 def overview() -> dict[str, Any]:
     baseline = _read_json(WEEK3 / "baseline.json")
-    metrics = _read_json(WEEK3 / "evaluation/agent-metrics.json")
     week5 = _read_json(WEEK5 / "metrics.json")
     dast_manifest = _read_json(ZAP_MANIFEST)
     sast = _sast_findings()
@@ -368,22 +367,51 @@ def overview() -> dict[str, Any]:
     severity = Counter(item["severity_key"] for item in [*sast, *dast])
     total = len(sast) + len(dast)
     true_vulns = sum(1 for item in sast if item.get("ground_truth") is True) + sum(
-        1 for item in dast if item["severity_key"] in {"high", "medium"}
+        1 for item in dast if item.get("verdict_key") == "confirmed_vulnerable"
     )
+    executed = sum(1 for row in _read_jsonl(GATEWAY_AUDIT) if row.get("decision") == "proxied")
+    analysed = sum(1 for item in [*sast, *dast] if item.get("verdict_key"))
+    sast_runs = _sast_runs()
+    zap_started = _when((dast_manifest.get("output") or {}).get("generated_at", ""))
+    recent = []
+    if dast_manifest.get("run_id"):
+        recent.append(
+            {
+                "id": dast_manifest["run_id"],
+                "type": "DAST",
+                "target": "Juice Shop via Gateway",
+                "status": "Completed",
+                "findings": len(dast),
+                "started": zap_started,
+                "page": "dast",
+            }
+        )
+    for row in sast_runs[:5]:
+        recent.append(
+            {
+                "id": row["id"],
+                "type": "SAST",
+                "target": "BenchmarkJava",
+                "status": row["status"],
+                "findings": row.get("findings"),
+                "started": row.get("started") or "",
+                "page": "sast",
+            }
+        )
     return {
         "total_findings": total,
         "true_vulnerabilities": true_vulns,
         "pending_approval": len(pending),
-        "active_scans": 1 if dast_manifest else 0,
+        "active_scans": 0,
         "sast_observations": baseline.get("observations", len(sast)),
         "sast_groups": baseline.get("analysis_groups_week3", len(sast)),
         "dast_observations": (dast_manifest.get("output") or {}).get("normalized_observations", len(dast)),
         "pipeline": [
-            {"id": "scan", "label": "Scan", "state": "running", "detail": "Running"},
-            {"id": "normalize", "label": "Normalize", "state": "success", "detail": "6 Success"},
-            {"id": "agent", "label": "Agent Analysis", "state": "success", "detail": f"{metrics.get('fake', {}).get('successful', 0)} Success"},
-            {"id": "approval", "label": "Approval", "state": "pending", "detail": f"{len(pending)} Pending"},
-            {"id": "gateway", "label": "Gateway", "state": "running", "detail": "6 Active"},
+            {"id": "scan", "label": "Scan", "state": "success", "detail": f"{len(sast_runs) + (1 if dast_manifest else 0)} completed"},
+            {"id": "normalize", "label": "Normalize", "state": "success", "detail": f"{total} findings"},
+            {"id": "agent", "label": "Agent Analysis", "state": "success", "detail": f"{analysed} analysed"},
+            {"id": "approval", "label": "Approval", "state": "pending" if pending else "success", "detail": f"{len(pending)} Pending"},
+            {"id": "gateway", "label": "Gateway", "state": "success" if executed else "pending", "detail": f"{executed} executed"},
             {"id": "report", "label": "Report", "state": "success", "detail": "Up to date"},
         ],
         "severity": [
@@ -393,32 +421,7 @@ def overview() -> dict[str, Any]:
             {"key": "low", "label": "Low", "count": severity.get("low", 0)},
             {"key": "info", "label": "Info", "count": severity.get("info", 0)},
         ],
-        "runs": [
-            {
-                "id": "RUN-2026-0822-001",
-                "type": "DAST",
-                "target": "Juice Shop via Gateway",
-                "status": "Completed",
-                "findings": len(dast),
-                "started": "Aug 22, 2026 04:32 AM",
-            },
-            {
-                "id": "RUN-2026-0807-002",
-                "type": "SAST",
-                "target": "BenchmarkJava",
-                "status": "Completed",
-                "findings": baseline.get("observations", len(sast)),
-                "started": "Aug 7, 2026 04:32 AM",
-            },
-            {
-                "id": "RUN-2026-0807-001",
-                "type": "SAST",
-                "target": "BenchmarkJava smoke",
-                "status": "Completed",
-                "findings": metrics.get("real", {}).get("successful", 5),
-                "started": "Aug 7, 2026 04:32 AM",
-            },
-        ],
+        "runs": recent[:6],
         "week5": week5,
     }
 
@@ -1109,6 +1112,14 @@ def decide_request(request_id: str, approved: bool) -> dict[str, Any]:
     return {"id": request_id, "status": status, "sent": sent, "note": note}
 
 
+def _scored_sast_runs() -> list[dict[str, Any]]:
+    """Every committed SAST scoring file, newest run_id first."""
+    scored = [_read_json(path) for path in (WEEK3 / "evaluation").glob("verdict-metrics-*.json")]
+    scored = [row for row in scored if row.get("run_id") and row.get("scored")]
+    scored.sort(key=lambda row: str(row["run_id"]), reverse=True)
+    return scored
+
+
 @lru_cache(maxsize=1)
 def _verdict_metrics() -> dict[str, Any]:
     """The scoring of the newest run, or empty when none is committed yet.
@@ -1117,11 +1128,59 @@ def _verdict_metrics() -> dict[str, Any]:
     are words and sort alphabetically, so `sast-verdict` would beat
     `sast-final` and the page would report a superseded run.
     """
-    scored = [_read_json(path) for path in (WEEK3 / "evaluation").glob("verdict-metrics-*.json")]
-    scored = [row for row in scored if row.get("run_id")]
-    if not scored:
-        return {}
-    return max(scored, key=lambda row: str(row["run_id"]))
+    scored = _scored_sast_runs()
+    return scored[0] if scored else {}
+
+
+def _kpi_block(scored: dict[str, Any]) -> dict[str, Any]:
+    counts = scored.get("counts") or {}
+    return {
+        "precision": round(float(scored.get("precision") or 0) * 100, 1),
+        "recall": round(float(scored.get("recall") or 0) * 100, 1),
+        "f1": round(float(scored.get("f1") or 0) * 100, 1) if scored.get("f1") is not None else None,
+        "true_positives": int(counts.get("TP", 0)),
+        "false_positives": int(counts.get("FP", 0)),
+        "false_negatives": int(counts.get("FN", 0)),
+        "true_negatives": int(counts.get("TN", 0)),
+        "abstained": int(counts.get("abstain", 0)),
+        "scored": int(scored.get("scored", 0)),
+        "run_id": scored.get("run_id") or "",
+        "tag": scored.get("tag") or "",
+    }
+
+
+def _delta(current: float, previous: float | None, *, lower_is_better: bool = False) -> dict[str, Any] | None:
+    if previous is None:
+        return None
+    change = current - previous
+    if previous == 0:
+        label = f"{change:+.1f} vs previous run"
+    else:
+        pct = (change / abs(previous)) * 100
+        label = f"{pct:+.1f}% vs previous run"
+    improved = change < 0 if lower_is_better else change > 0
+    return {"label": label, "improved": improved, "unchanged": change == 0}
+
+
+def _remediation_rows(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    open_keys = {"Confirmed Vulnerable", "Likely Vulnerable"}
+    wip_keys = {"Insufficient Evidence", "Needs Review"}
+    rows = []
+    for label in ("critical", "high", "medium", "low"):
+        bucket = [item for item in findings if item.get("severity_key") == label]
+        opened = sum(1 for item in bucket if item.get("verdict") in open_keys)
+        wip = sum(1 for item in bucket if item.get("verdict") in wip_keys)
+        fixed = max(0, len(bucket) - opened - wip)
+        rows.append(
+            {
+                "severity": label.title(),
+                "open": opened,
+                "in_progress": wip,
+                "fixed": fixed,
+                "total": len(bucket),
+            }
+        )
+    return rows
 
 
 def reports_payload() -> dict[str, Any]:

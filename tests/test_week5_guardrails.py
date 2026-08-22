@@ -16,7 +16,7 @@ from sentinel_benchmark.guardrails.approval import (
     ProposedRequest,
 )
 from sentinel_benchmark.guardrails.injection import DATA_OPEN, quarantine, scan
-from sentinel_benchmark.guardrails.redaction import redact, redact_obj, redact_with_stats
+from sentinel_benchmark.guardrails.redaction import PLACEHOLDERS, redact, redact_obj, redact_with_stats
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = json.loads(
@@ -177,6 +177,41 @@ def test_redaction_no_false_positive_on_line_numbers_and_ports() -> None:
     assert redact(text) == text
 
 
+def test_a_bare_api_key_is_masked_without_a_keyword_next_to_it() -> None:
+    # A key only gets masked when the pattern recognises the key itself. Relying
+    # on an adjacent "Bearer" or "key=" left a live Stripe key in plain text.
+    for secret in ("sk-abcdef0123456789ABCDEF", "sk-pkdummy0123456789ABCDEF", "sk-rkdummy0123456789ABCDEF"):
+        assert redact(f"the response body contained {secret} and nothing else") == f"the response body contained {PLACEHOLDERS['API_KEY']} and nothing else"
+
+
+def test_identifier_fields_survive_redaction_intact() -> None:
+    # Regression: a hex digest can contain nine consecutive digits, which the
+    # PII rule matched. That rewrote an analysis_group_id and silently broke the
+    # join between a probe record and the report it belonged to. Every
+    # identifier a record carries must round-trip unchanged.
+    record = {
+        "analysis_group_id": "EG-2a123456789acf68",
+        "analysis_group_ids": ["EG-2a123456789acf68", "EG-987654321abcdef0"],
+        "observation_id": "juiceshop-zap-baseline:zap-10038-100380:0012",
+        "observation_ids": ["benchmark-deepsec:000123456789"],
+        "report_id": "AR-123456789abcdef",
+        "run_id": "20260822T071512Z-probe",
+        "route_id": "js-app-config",
+        "payload_id": "long-string",
+        "subject_id": "/rest/products/{id}/reviews",
+        "reported_cwes": ["CWE-693"],
+        "verdict": "likely_vulnerable",
+    }
+    assert redact_obj(record) == record
+
+
+def test_a_secret_under_an_identifier_shaped_key_is_still_masked() -> None:
+    # The skip list is explicit for this reason: application data may carry an
+    # id-shaped key whose value is real PII.
+    masked = redact_obj({"user_id": "nguyen.van.a@example.com", "customer_id": "0912345678"})
+    assert masked == {"user_id": "[REDACTED_EMAIL]", "customer_id": "[REDACTED_PHONE]"}
+
+
 def test_redaction_stats_counts_types() -> None:
     _out, stats = redact_with_stats("a@b.com and c@d.com and 0912345678")
     assert stats.get("EMAIL") == 2
@@ -203,6 +238,21 @@ def test_injection_detects_pattern_families(text: str, expected: str) -> None:
 def test_injection_benign_scanner_text_not_flagged() -> None:
     verdict = scan("Untrusted input flows into a SQL statement without sanitisation.")
     assert not verdict.flagged and verdict.patterns == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        '<a href="https://owasp.org/">OWASP</a>',
+        '{"gitHubUrl": "https://github.com/juice-shop/juice-shop"}',
+        "Report an issue at https://example.test/support or read the docs.",
+        "POST /api/Feedbacks returned 201.",
+    ],
+)
+def test_ordinary_web_content_containing_a_url_is_not_exfiltration(text: str) -> None:
+    # Regression: matching "https://" on its own flagged every HTML page that
+    # came back from the live target, which made the verdict carry no signal.
+    assert not scan(text).flagged
 
 
 def test_injection_quarantine_preserves_original_text() -> None:

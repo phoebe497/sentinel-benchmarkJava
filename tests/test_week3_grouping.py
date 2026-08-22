@@ -17,7 +17,9 @@ def test_deterministic_grouping_and_assignment(tmp_path: Path) -> None:
     again = load_groups(db, PREDICTIONS)
     assigned = [item for group in groups for item in group.observation_ids]
     with sqlite3.connect(db) as conn:
-        ids = {row[0] for row in conn.execute("SELECT observation_id FROM findings")}
+        # Benchmark grouping is keyed on BenchmarkTest IDs, so it must claim every
+        # SAST observation and none of the DAST ones (those group by endpoint).
+        ids = {row[0] for row in conn.execute("SELECT observation_id FROM findings WHERE dataset='owasp-benchmark-java'")}
     assert len(groups) == 99
     assert len(assigned) == len(set(assigned)) == 372
     assert set(assigned) == ids

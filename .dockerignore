@@ -1,0 +1,16 @@
+.git
+.venv
+__pycache__
+.pytest_cache
+.agents
+.cursor
+.vscode
+_bmad-output
+vendor
+datasets/processed
+*.db
+*.egg-info
+.env
+artifacts/generated
+artifacts/ci
+artifacts/week-5/ui-approval-events.jsonl

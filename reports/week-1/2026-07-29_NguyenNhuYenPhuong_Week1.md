@@ -87,7 +87,7 @@ cùng 100 file Java, không dùng 9Router và không có token LLM. Ground truth
 | S2 | `p/java` + `p/security-audit` | 89 | 57 | 4 | 18 | 21 | 93.44% | 76.00% | 83.82% | 17.93 s |
 | S3 | `p/java`, chỉ `ERROR` | 23 | 15 | 4 | 60 | 21 | 78.95% | 20.00% | 31.91% | 12.13 s |
 
-Semgrep S0 là baseline non-LLM chính. S1–S3 là các A/B test về cấu hình Semgrep, không phải ablation của DeepSec. S1/S2 cho thấy ruleset `security-audit` bắt được nhiều CWE hơn mà không tăng FP trên tập 100 file. S3 giảm thời gian và số finding nhưng bỏ sót nhiều lỗi; đây là trade-off của ngưỡng severity, không phải thay đổi thuật toán phân tích.
+Semgrep S0 là baseline non-LLM chính. S1-S3 là các A/B test về cấu hình Semgrep, không phải ablation của DeepSec. S1/S2 cho thấy ruleset `security-audit` bắt được nhiều CWE hơn mà không tăng FP trên tập 100 file. S3 giảm thời gian và số finding nhưng bỏ sót nhiều lỗi; đây là trade-off của ngưỡng severity, không phải thay đổi thuật toán phân tích.
 
 Kết quả được lưu tại:
 `sast-benchmark/runs/20260729T040126Z-semgrep-first100/`.
@@ -141,7 +141,7 @@ repo, biến thể, recovery và đóng gói artifact nằm trong
 
 ### 6. Việc chưa làm
 
-- Chưa chạy D1–D3 trên DeepSec/Pi (thinking level, context/batch grouping và agent-turn budget). Vì vậy chưa có kết luận ablation cho DeepSec.
+- Chưa chạy D1-D3 trên DeepSec/Pi (thinking level, context/batch grouping và agent-turn budget). Vì vậy chưa có kết luận ablation cho DeepSec.
 - Chưa quét toàn bộ 2.740 test case của BenchmarkJava; kết quả hiện tại chỉ đại diện cho 100 file đầu.
 - Chưa lặp lại mỗi cấu hình nhiều lần, nên chưa có độ lệch chuẩn hoặc khoảng tin cậy cho các metrics.
 - Chưa thực hiện kiểm định ý nghĩa thống kê giữa các scanner.

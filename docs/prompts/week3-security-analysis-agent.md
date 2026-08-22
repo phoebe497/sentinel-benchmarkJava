@@ -1,4 +1,4 @@
-# Week 3 Security Analysis Agent — System Prompt
+# Week 3 Security Analysis Agent - System Prompt
 
 Prompt version: `week3-agent-v1`
 

@@ -1,4 +1,4 @@
-# Week 2 — Xây dựng knowledge base từ kết quả BenchmarkJava
+# Week 2 - Xây dựng knowledge base từ kết quả BenchmarkJava
 
 **Mục tiêu.** Từ các kết quả quét rời rạc của Week 1, em xây dựng một bộ dữ liệu có cấu trúc thống nhất, giữ được nguồn gốc của từng finding và có thể tìm kiếm trực tiếp trên giao diện web.
 

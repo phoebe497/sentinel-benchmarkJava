@@ -105,20 +105,20 @@ Controls and compact surfaces use `{rounded.md}`. Main context cards use `{round
 
 ## Components
 
-- **Page introduction** — one eyebrow, one clear title and a two-line explanation. No duplicate title in the sidebar.
-- **Journey strip** — six pipeline stages, no week numbers: Quét → Tri thức → Báo cáo → Phê duyệt → Cổng lọc → Kết quả. The current stage is teal; completed stages stay readable; future stages stay muted. The strip is a progress indicator, not navigation.
-- **Guided spotlight** — in Guided Demo only. A teal 2px ring (`{colors.primary}`) plus a one-line coach label sits on the single control the user must click. No other control is ringed. After that click, the step advances (and the page may change).
-- **Finding selector** — CWE filter followed by a concrete Benchmark test selection. Help text explains why the test is relevant.
-- **Context card** — vulnerability name, test ID, scanner count and observation count. It replaces scattered badges and comments.
-- **Evidence row** — scanner and location first; excerpt is disclosed in an expander. Missing excerpts use neutral copy, not a warning block.
-- **Suggested question** — action-labelled button with a specific vulnerability target. Buttons wrap or stack instead of truncating.
-- **Knowledge result** — ranked title, document ID and match signal in the expander label; content, tags and source appear after disclosure.
-- **Report card** — vulnerability and severity first, plain-language explanation next, technical provenance last.
-- **Proposed-request card** — one plain-language purpose, then `method` + path, then `route_id` / `payload_id` from the Gateway menu. Help text: the agent only picks from allowed routes.
-- **Approval card** — purpose first; endpoint and payload in code; two actions: **Từ chối** (danger outline, default focus) and **Duyệt và gửi** (`{colors.primary}`). No third button. Rejected state uses `{colors.danger-soft}` with the sentence “Request không được gửi.”
-- **Filtered-response panel** — redacted body only. Text badges: “Đã che dữ liệu nhạy cảm” (`{colors.success-soft}`) and/or “Phát hiện chỉ dẫn lạ — đã cách ly” (`{colors.warning-soft}`). No “view original” control.
-- **Metric** — at most five decision-relevant counts. Technical integrity metrics stay on the evaluation / data surface.
-- **Evaluation matrix** — 2×2 TP/TN/FP/FN with text labels plus three KPI tiles (Precision, Recall, Accuracy). Color is supplemental.
+- **Page introduction** - one eyebrow, one clear title and a two-line explanation. No duplicate title in the sidebar.
+- **Journey strip** - six pipeline stages, no week numbers: Quét → Tri thức → Báo cáo → Phê duyệt → Cổng lọc → Kết quả. The current stage is teal; completed stages stay readable; future stages stay muted. The strip is a progress indicator, not navigation.
+- **Guided spotlight** - in Guided Demo only. A teal 2px ring (`{colors.primary}`) plus a one-line coach label sits on the single control the user must click. No other control is ringed. After that click, the step advances (and the page may change).
+- **Finding selector** - CWE filter followed by a concrete Benchmark test selection. Help text explains why the test is relevant.
+- **Context card** - vulnerability name, test ID, scanner count and observation count. It replaces scattered badges and comments.
+- **Evidence row** - scanner and location first; excerpt is disclosed in an expander. Missing excerpts use neutral copy, not a warning block.
+- **Suggested question** - action-labelled button with a specific vulnerability target. Buttons wrap or stack instead of truncating.
+- **Knowledge result** - ranked title, document ID and match signal in the expander label; content, tags and source appear after disclosure.
+- **Report card** - vulnerability and severity first, plain-language explanation next, technical provenance last.
+- **Proposed-request card** - one plain-language purpose, then `method` + path, then `route_id` / `payload_id` from the Gateway menu. Help text: the agent only picks from allowed routes.
+- **Approval card** - purpose first; endpoint and payload in code; two actions: **Từ chối** (danger outline, default focus) and **Duyệt và gửi** (`{colors.primary}`). No third button. Rejected state uses `{colors.danger-soft}` with the sentence “Request không được gửi.”
+- **Filtered-response panel** - redacted body only. Text badges: “Đã che dữ liệu nhạy cảm” (`{colors.success-soft}`) and/or “Phát hiện chỉ dẫn lạ - đã cách ly” (`{colors.warning-soft}`). No “view original” control.
+- **Metric** - at most five decision-relevant counts. Technical integrity metrics stay on the evaluation / data surface.
+- **Evaluation matrix** - 2×2 TP/TN/FP/FN with text labels plus three KPI tiles (Precision, Recall, Accuracy). Color is supplemental.
 
 ## Do's and Don'ts
 

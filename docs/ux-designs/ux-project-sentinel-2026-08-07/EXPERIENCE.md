@@ -9,7 +9,7 @@ sources:
 updated: 2026-08-19
 ---
 
-# Sentinel Analysis Workspace — Experience Spine
+# Sentinel Analysis Workspace - Experience Spine
 
 ## Foundation
 
@@ -17,7 +17,7 @@ Responsive Streamlit web application, desktop-first and usable on tablet or phon
 
 Assumptions used for this iteration:
 
-- A first-time visitor understands “lỗ hổng” but may not know the Week 1–6 implementation history. The UI never leads with week numbers.
+- A first-time visitor understands “lỗ hổng” but may not know the Week 1-6 implementation history. The UI never leads with week numbers.
 - The primary demo task is one finding, then one human-approved probe, then a filtered response.
 - Mentor review needs a Reject that is visibly not sent.
 - Existing datasets, Agent contracts and report artifacts remain unchanged.
@@ -29,10 +29,10 @@ Three navigation groups. Labels describe the job, not the week.
 | Group | Surface | Reached from | Purpose |
 |---|---|---|---|
 | PHÂN TÍCH | Tổng quan | App open | Dashboard + start Guided Demo |
-| PHÂN TÍCH | Lỗ hổng & bằng chứng | Nav / Guided step 1–2 | Choose a CWE/test and read scanner evidence |
+| PHÂN TÍCH | Lỗ hổng & bằng chứng | Nav / Guided step 1-2 | Choose a CWE/test and read scanner evidence |
 | PHÂN TÍCH | Tra cứu tri thức | Nav / Guided step 2 | Read curated guidance for that weakness |
 | PHÂN TÍCH | Phân tích của Agent | Nav / Guided step 3 | Read the Agent report and ask Sentinel |
-| KIỂM CHỨNG | Kiểm chứng an toàn | Nav / Guided step 4–5 | Proposed request → approve/reject → filtered response |
+| KIỂM CHỨNG | Kiểm chứng an toàn | Nav / Guided step 4-5 | Proposed request → approve/reject → filtered response |
 | KẾT QUẢ | Đánh giá độ chính xác | Nav / Guided step 6 | Compare Agent output to expected answers |
 | KẾT QUẢ | Chạy & số liệu | Nav / Guided step 6 | End-to-end run counts |
 | KẾT QUẢ | Báo cáo | Nav | Review and export JSONL |
@@ -57,15 +57,15 @@ The strip is a progress indicator, not a clickable nav. It appears on Tổng qua
 | 3 | Hỏi Agent | Nhận giải thích theo đúng ngữ cảnh. |
 | 4 | Duyệt phép thử | Xem request, rồi Từ chối hoặc Duyệt. |
 | 5 | Phản hồi đã lọc | Xem kết quả đã che và đã cách ly. |
-| 6 | Xuất / đánh giá | Xem đúng–sai và tải báo cáo. |
+| 6 | Xuất / đánh giá | Xem đúng-sai và tải báo cáo. |
 
 Current step: teal number + label. Completed steps: muted check treatment. Future steps: muted, not clickable.
 
-## Guided Demo — spotlight, not autoplay
+## Guided Demo - spotlight, not autoplay
 
 Yes: on the live web UI the stepper highlights the **current** step, and exactly **one** on-page control is ringed with a coach label. The user clicks that control. Then the step advances (the page may change). The last step shows results. The demo does **not** auto-play and does **not** highlight the whole page.
 
-Session keys: `guided_active`, `guided_step` (1–6), `guided_finding` (CWE + test). Leaving Guided Demo via **Thoát demo** clears the spotlight but keeps the selected finding.
+Session keys: `guided_active`, `guided_step` (1-6), `guided_finding` (CWE + test). Leaving Guided Demo via **Thoát demo** clears the spotlight but keeps the selected finding.
 
 | Step | Page | Spotlight target | After the click |
 |---|---|---|---|
@@ -79,7 +79,7 @@ Session keys: `guided_active`, `guided_step` (1–6), `guided_finding` (CWE + te
 
 Mentor climax is 4a. A Reject that is skipped would fail the demo script.
 
-Public/read-only: steps 4b–5 replay a committed, already-redacted artifact and still show the Reject path. The UI must not claim a live Gateway call in Public mode.
+Public/read-only: steps 4b-5 replay a committed, already-redacted artifact and still show the Reject path. The UI must not claim a live Gateway call in Public mode.
 
 ## Voice and Tone
 
@@ -160,7 +160,7 @@ Use Vietnamese for navigation, actions and explanations. Preserve CWE, scanner n
 | Width | Behavior |
 |---|---|
 | ≥ 1024px | Evidence and chat may sit in two columns; content capped at 1180px. Kiểm chứng stays one column (proposal → approval → response) |
-| 768–1023px | Single-column analysis; metrics in two rows |
+| 768-1023px | Single-column analysis; metrics in two rows |
 | < 768px | Streamlit collapses nav; controls full width; journey strip wraps; tables scroll |
 
 ## Product-specific Trust Rules
@@ -175,14 +175,14 @@ Use Vietnamese for navigation, actions and explanations. Preserve CWE, scanner n
 
 ## Key Flows
 
-### Flow 1 — First finding review (Minh)
+### Flow 1 - First finding review (Minh)
 
 1. Opens Tổng quan. Reads one sentence about the 100-test corpus.
 2. Sees the six-step strip, not week numbers.
 3. Uses `Dùng ví dụ CWE-89` or browses without Guided Demo.
 4. Reads evidence, asks Sentinel, exports JSONL.
 
-### Flow 2 — Mentor Guided Demo (Phương)
+### Flow 2 - Mentor Guided Demo (Phương)
 
 1. Clicks **Chạy demo có hướng dẫn**.
 2. Follows the six-step spotlight script above, including **Từ chối** before **Duyệt và gửi**.
@@ -190,7 +190,7 @@ Use Vietnamese for navigation, actions and explanations. Preserve CWE, scanner n
 4. Confirms the filtered response shows placeholders, not secrets.
 5. Ends on the evaluation matrix and JSONL export.
 
-### Flow 3 — Local analyst (Lan)
+### Flow 3 - Local analyst (Lan)
 
 1. Selects a finding. Baked evidence loads without calling OpenCode.
 2. Optionally creates a new report after a quota confirmation.

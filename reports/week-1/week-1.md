@@ -1,10 +1,10 @@
-# Week 1 — Đánh giá SAST trên OWASP BenchmarkJava
+# Week 1 - Đánh giá SAST trên OWASP BenchmarkJava
 
 **Mục tiêu.** Trong tuần đầu, em xây dựng một phép thử có ground truth để so sánh hai công cụ dùng LLM là Alibaba OpenCodeReview và Vercel DeepSec/Pi với công cụ SAST truyền thống Semgrep.
 
 ## Quá trình
 
-- Cố định OWASP BenchmarkJava tại commit `79b9bd6`, sau đó chọn 100 file đầu tiên (`00001–00100`), gồm 75 mẫu có lỗ hổng và 25 mẫu không có lỗ hổng.
+- Cố định OWASP BenchmarkJava tại commit `79b9bd6`, sau đó chọn 100 file đầu tiên (`00001-00100`), gồm 75 mẫu có lỗ hổng và 25 mẫu không có lỗ hổng.
 - Scanner chỉ được nhận source Java. File `expectedresults-1.2.csv` được giữ riêng và chỉ dùng để đối chiếu sau khi quá trình quét kết thúc.
 - OpenCodeReview và DeepSec/Pi cùng sử dụng model `gc/gemini-2.5-flash`. Semgrep được chạy với các cấu hình `p/java`, `p/security-audit`, cấu hình kết hợp và biến thể chỉ giữ mức ERROR.
 - Kết quả chỉ được chấm khi cả 100 file đều đã xử lý xong. Manifest, findings gốc, predictions đã chuẩn hóa, log và metrics được lưu thành các artifact riêng.

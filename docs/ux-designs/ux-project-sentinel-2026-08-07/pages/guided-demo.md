@@ -12,7 +12,7 @@ Guided Demo is a mode, not a page. It reuses existing surfaces and adds a spotli
 
 - Journey strip: current step teal, completed muted, future muted.
 - Spotlight: 2px `{colors.primary}` ring, radius `{rounded.md}`, plus a coach line above the control:
-  `Bước 4 — bấm Từ chối để chứng minh request không được gửi.`
+  `Bước 4 - bấm Từ chối để chứng minh request không được gửi.`
 - No pulse if `prefers-reduced-motion`. No dimmed overlay (Streamlit cannot reliably dim siblings). The ring + coach line are the cue.
 - Strip right side: **Thoát demo**.
 
@@ -29,7 +29,7 @@ Skipping 4 (Reject) is not a completed mentor demo.
 
 ## Public vs Local
 
-| Mode | Step 4b–5 |
+| Mode | Step 4b-5 |
 |---|---|
 | Public | Replay committed redacted artifact. Caption: “Đang xem bản ghi đã lưu. Không gọi Gateway.” |
 | Local | Real `safe_probe` call after Approve. Caption: “Đã gửi qua Gateway.” |

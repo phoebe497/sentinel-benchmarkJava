@@ -8,7 +8,7 @@ updated: 2026-08-19
 
 One column, three panels, `{spacing.7}` between panels. No tabs.
 
-## Panel 1 — Đề xuất
+## Panel 1 - Đề xuất
 
 - Eyebrow: `Phép thử đề xuất`
 - Title: one sentence purpose, e.g. “Kiểm tra endpoint đăng nhập có chấp nhận dữ liệu sai kiểu không.”
@@ -16,7 +16,7 @@ One column, three panels, `{spacing.7}` between panels. No tabs.
 - Help: “Agent chỉ chọn từ danh sách Gateway cho phép. Payload phá hoại không nằm trong danh sách.”
 - Empty: “Chọn một lỗ hổng ở bước phân tích trước khi đề xuất phép thử.”
 
-## Panel 2 — Approval card
+## Panel 2 - Approval card
 
 | State | Copy | Actions |
 |---|---|---|
@@ -28,10 +28,10 @@ One column, three panels, `{spacing.7}` between panels. No tabs.
 
 Do not add “Gửi lại”, “Bỏ qua duyệt”, or a third button.
 
-## Panel 3 — Phản hồi đã lọc
+## Panel 3 - Phản hồi đã lọc
 
 - Show only after a successful send or a Public-mode replay artifact.
 - Body is already redacted.
-- Badges (text + color): `Đã che dữ liệu nhạy cảm` · `Phát hiện chỉ dẫn lạ — đã cách ly`.
+- Badges (text + color): `Đã che dữ liệu nhạy cảm` · `Phát hiện chỉ dẫn lạ - đã cách ly`.
 - Expander “Chi tiết kỹ thuật”: status, `X-Gateway-Route`, injection pattern names, latency. No raw secret, no API key.
 - Rejected path: this panel stays empty with caption “Chưa có phản hồi vì request không được gửi.”

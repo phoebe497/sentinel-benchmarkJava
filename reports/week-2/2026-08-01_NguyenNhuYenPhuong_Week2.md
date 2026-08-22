@@ -134,17 +134,17 @@ Streamlit smoke test trả về HTTP 200 khi khởi động ở chế độ head
 
 ### 4. Deliverables
 
-- `week2/normalizer.py` — chương trình chuẩn hóa JSON/JSONL.
-- `week2/indexer.py` — ingest đa nguồn và build SQLite FTS5 index.
-- `week2/search.py` — keyword baseline, alias và FTS retrieval.
-- `week2/config/sources.json` — manifest các nguồn WebGoat/OWASP Benchmark.
-- `week2/data/normalized_findings.json` — 121 findings WebGoat đã chuẩn hóa.
-- `week2/data/knowledge_base.jsonl` — knowledge base 12 tài liệu/ví dụ.
-- `week2/data/sentinel.db` — SQLite index được sinh bởi `indexer.py`.
-- `week2/app.py` — Streamlit UI.
-- `week2/test_week2.py` — automated tests.
-- `week2/TEST_CASES.md` — manual test cases cho demo.
-- `week2/README.md` — kiến trúc, kỹ thuật, cài đặt, sử dụng và troubleshooting.
+- `week2/normalizer.py` - chương trình chuẩn hóa JSON/JSONL.
+- `week2/indexer.py` - ingest đa nguồn và build SQLite FTS5 index.
+- `week2/search.py` - keyword baseline, alias và FTS retrieval.
+- `week2/config/sources.json` - manifest các nguồn WebGoat/OWASP Benchmark.
+- `week2/data/normalized_findings.json` - 121 findings WebGoat đã chuẩn hóa.
+- `week2/data/knowledge_base.jsonl` - knowledge base 12 tài liệu/ví dụ.
+- `week2/data/sentinel.db` - SQLite index được sinh bởi `indexer.py`.
+- `week2/app.py` - Streamlit UI.
+- `week2/test_week2.py` - automated tests.
+- `week2/TEST_CASES.md` - manual test cases cho demo.
+- `week2/README.md` - kiến trúc, kỹ thuật, cài đặt, sử dụng và troubleshooting.
 
 ---
 

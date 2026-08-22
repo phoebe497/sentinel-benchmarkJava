@@ -1,4 +1,4 @@
-# Week 5 — Hướng dẫn review
+# Week 5 - Hướng dẫn review
 
 Week 5 thêm guardrail cho Security Analysis Agent: **prompt-injection filter**, **human approval** trước khi gửi request, và **redaction** trước khi nội dung vào LLM hoặc log.
 
@@ -16,8 +16,8 @@ Review theo thứ tự dưới đây là đủ. Public demo replay artifact đã
 
 1. Sidebar → nhóm **KIỂM CHỨNG** → **Kiểm chứng an toàn**.
 2. Xem đề xuất request (endpoint, payload, purpose).
-3. Bấm **Từ chối** — request không được gửi, không có phản hồi.
-4. Bấm **Duyệt và gửi** — UI hiện bản ghi đã lọc: injection bị flag/quarantine, secret đã redact (`[REDACTED_EMAIL]`, …). Không có nút xem dữ liệu gốc.
+3. Bấm **Từ chối** - request không được gửi, không có phản hồi.
+4. Bấm **Duyệt và gửi** - UI hiện bản ghi đã lọc: injection bị flag/quarantine, secret đã redact (`[REDACTED_EMAIL]`, …). Không có nút xem dữ liệu gốc.
 
 Tuỳ chọn: sidebar **Bắt đầu bản trình diễn** để được dẫn lần lượt tới đúng trang này.
 
@@ -25,10 +25,10 @@ Tuỳ chọn: sidebar **Bắt đầu bản trình diễn** để được dẫn 
 
 | Hạng mục | Đường dẫn |
 | :--- | :--- |
-| Implementation | [`src/sentinel_benchmark/guardrails/`](../../src/sentinel_benchmark/guardrails/) — `redaction.py`, `injection.py`, `approval.py` |
+| Implementation | [`src/sentinel_benchmark/guardrails/`](../../src/sentinel_benchmark/guardrails/) - `redaction.py`, `injection.py`, `approval.py` |
 | Test (34 case) | [`tests/test_week5_guardrails.py`](../../tests/test_week5_guardrails.py) |
 | Fixture em soạn | [`datasets/guardrails/crafted-injection-response.json`](../../datasets/guardrails/crafted-injection-response.json) |
-| Evidence | [`artifacts/week-5/`](../../artifacts/week-5/) — `metrics.json`, `redaction-proof.json`, `injection-scan.json`, `approval-events.jsonl` |
+| Evidence | [`artifacts/week-5/`](../../artifacts/week-5/) - `metrics.json`, `redaction-proof.json`, `injection-scan.json`, `approval-events.jsonl` |
 
 Chạy test local:
 

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sentinel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/css/sentinel.css?v=sast-export-4" />
+    <script>
+      document.documentElement.dataset.theme = localStorage.getItem("sentinel-theme") || "light";
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+    <script src="/static/js/app.js?v=sast-export-4" defer></script>
+  </head>
+  <body>
+    <div class="sentinel-shell" id="shell">
+      <aside class="sentinel-sidebar">
+        <div class="sentinel-brand">
+          <span class="sentinel-brand__mark" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6.5v5.2c0 4.5 3 7.8 7 9.3 4-1.5 7-4.8 7-9.3V6.5L12 3Z" fill="currentColor"/><path d="M11 8h2v5h3l-4 5-4-5h3V8Z" fill="#fff"/></svg>
+          </span>
+          <span class="sentinel-brand__name">Sentinel</span>
+        </div>
+        <nav class="sentinel-nav" id="nav"></nav>
+        <div class="sentinel-sidebar__foot">
+          <button class="sentinel-sidebar__item" type="button" id="settings-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+            <span class="sentinel-sidebar__label">Settings</span>
+          </button>
+          <button class="sentinel-sidebar__item" type="button" id="collapse-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>
+            <span class="sentinel-sidebar__label">Collapse</span>
+          </button>
+        </div>
+      </aside>
+      <div class="sentinel-workspace">
+        <header class="sentinel-topbar">
+          <button class="sentinel-icon-btn" type="button" id="menu-btn" aria-label="Toggle sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+          <div class="sentinel-search-wrap">
+            <label class="sentinel-search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+              <input id="search" type="search" placeholder="Search anything..." autocomplete="off" />
+              <span class="sentinel-kbd">⌘K</span>
+            </label>
+            <div class="sentinel-search-results" id="search-results" hidden></div>
+          </div>
+          <div class="sentinel-topbar__actions">
+            <span class="sentinel-agent-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M9 13v2M15 13v2"/></svg>
+              Security Analysis Agent
+            </span>
+            <button class="sentinel-icon-btn" type="button" aria-label="Notifications">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+            </button>
+            <button class="sentinel-icon-btn" type="button" id="theme-btn" aria-label="Toggle color theme" aria-pressed="false">
+              <svg class="theme-icon theme-icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2 7.6 7.6M16.4 16.4l1.4 1.4M6.2 17.8 7.6 16.4M16.4 7.6 17.8 6.2"/></svg>
+              <svg class="theme-icon theme-icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5Z"/></svg>
+            </button>
+          </div>
+        </header>
+        <main class="sentinel-main" id="page"></main>
+      </div>
+    </div>
+    <aside class="sentinel-drawer drawer-hidden" id="drawer" hidden></aside>
+    <div class="toast" id="toast" hidden></div>
+  </body>
+</html>

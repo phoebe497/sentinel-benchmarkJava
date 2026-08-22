@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "run_id": "20260822T043255Z-zap-juiceshop-baseline",
+  "dataset": "juice-shop-dast",
+  "target": {
+    "app": "OWASP Juice Shop",
+    "image": "bkimminich/juice-shop:latest",
+    "image_digest": "sha256:73c53fbf442e8337b3ea3d98c7e8550308854701ebdfce4cc39768f36b75430e",
+    "internal_url": "http://juice-shop:3000",
+    "published_ports": "none (internal network only; reachable through the gateway or by ZAP on the same network)"
+  },
+  "scanner": {
+    "tool": "ZAP",
+    "mode": "baseline (passive only, no active attack)",
+    "version": "2.17.0",
+    "image": "zaproxy/zap-stable:2.17.0",
+    "image_digest": "sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2",
+    "command": "zap-baseline.py -t http://juice-shop:3000 -J zap-baseline.json -r zap-baseline.html -m 3 -j -I",
+    "spider": "traditional (3 min) + AJAX spider",
+    "urls_with_alerts": 18
+  },
+  "output": {
+    "raw": "artifacts/week-6/dast/zap-baseline.json",
+    "raw_sha256": "3fcf46a60da4ab30820c3066e983425fdcba5717a0d6debfcd2f7613451f9663",
+    "html_report": "artifacts/week-6/dast/zap-baseline.html",
+    "generated_at": "2026-08-22T04:32:55Z",
+    "alerts": 9,
+    "normalized_observations": 33
+  },
+  "reproduce": [
+    "bash scripts/stack.sh up",
+    "bash scripts/stack.sh scan"
+  ],
+  "notes": [
+    "Baseline mode is passive: ZAP spiders and reports what normal traffic reveals; it never sends attack payloads.",
+    "Alert counts are not deterministic between runs because the spider explores a live SPA, so tests must not pin them.",
+    "ZAP scans juice-shop directly on the internal network because it is a scanner. The agent's request tool has no route except the gateway."
+  ]
+}

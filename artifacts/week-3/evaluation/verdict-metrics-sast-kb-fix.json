@@ -1,0 +1,38 @@
+{
+  "abstention_rate": 0.0,
+  "accuracy": 1.0,
+  "counts": {
+    "FN": 0,
+    "FP": 0,
+    "TN": 0,
+    "TP": 1,
+    "abstain": 0,
+    "no_ground_truth": 0
+  },
+  "f1": 1.0,
+  "ground_truth_source": "artifacts/week-1/semgrep-20260806/variants/security-audit/predictions.jsonl",
+  "outcomes": [
+    {
+      "analysis_group_id": "AG-e1e88492fe691259",
+      "dataset": "owasp-benchmark-java",
+      "ground_truth": true,
+      "outcome": "TP",
+      "report_id": "AR-60bae7b96d5f5818",
+      "stance": "vulnerable",
+      "subject_id": "BenchmarkTest00011",
+      "verdict": "confirmed_vulnerable",
+      "verdict_changed_by_probe": false,
+      "verified": false
+    }
+  ],
+  "precision": 1.0,
+  "recall": 1.0,
+  "reports": 1,
+  "run_id": "20260822T084821Z-sast-kb-fix",
+  "schema_version": "1.0",
+  "scored": 1,
+  "tag": "sast-kb-fix",
+  "verdict_distribution": {
+    "confirmed_vulnerable": 1
+  }
+}

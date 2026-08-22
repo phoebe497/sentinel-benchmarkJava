@@ -1,0 +1,18 @@
+{"analysis_group_id":"EG-2a729876711acf68","document_ids":[],"query":"modern_web_application"}
+{"analysis_group_id":"EG-4cfa731c20e37079","document_ids":["KB-006","KB-EX-014","KB-EX-013"],"query":"CWE-264 access_control_misconfiguration"}
+{"analysis_group_id":"EG-df1c632df53bfbb9","document_ids":["KB-EX-013","KB-006","KB-010"],"query":"CWE-693 missing_security_control"}
+{"analysis_group_id":"EG-95d9d55b5d831827","document_ids":["KB-EX-013","KB-006","KB-010"],"query":"CWE-693 missing_security_control"}
+{"analysis_group_id":"EG-b1562e2e348340af","document_ids":["KB-EX-013","KB-006","KB-010"],"query":"CWE-693 missing_security_control"}
+{"analysis_group_id":"EG-88e67936cbf425d5","document_ids":["KB-EX-013","KB-006","KB-010"],"query":"CWE-693 missing_security_control"}
+{"analysis_group_id":"EG-722532bece1bf699","document_ids":[],"query":"modern_web_application"}
+{"analysis_group_id":"EG-eeeb4a0fb708f7fd","document_ids":[],"query":"modern_web_application"}
+{"analysis_group_id":"EG-ba52dab00b2f5c0c","document_ids":["KB-011"],"query":"CWE-497 information_disclosure"}
+{"analysis_group_id":"EG-0e75939c04dcc228","document_ids":["KB-EX-013","KB-011","KB-EX-015"],"query":"session_management_response_identified"}
+{"analysis_group_id":"EG-a8eac0525d4ade94","document_ids":["KB-006","KB-EX-014","KB-EX-013"],"query":"CWE-264 access_control_misconfiguration"}
+{"analysis_group_id":"EG-4c96e90df22dcf4c","document_ids":[],"query":"modern_web_application"}
+{"analysis_group_id":"EG-ebc78bf11b8a23b4","document_ids":["KB-006","KB-EX-014","KB-EX-013"],"query":"CWE-264 access_control_misconfiguration"}
+{"analysis_group_id":"EG-b20c3f8432a6e4e6","document_ids":["KB-EX-013","KB-006","KB-010"],"query":"CWE-693 missing_security_control"}
+{"analysis_group_id":"EG-ef8682c101fff4ce","document_ids":[],"query":"CWE-1021 clickjacking"}
+{"analysis_group_id":"EG-95d02902f4730b41","document_ids":["KB-011"],"query":"CWE-598 information_disclosure"}
+{"analysis_group_id":"EG-b259cb5890268fcc","document_ids":["KB-EX-013","KB-006","KB-010"],"query":"CWE-693 missing_security_control"}
+{"analysis_group_id":"EG-af6687ca15677c3d","document_ids":["KB-011"],"query":"CWE-497 information_disclosure"}

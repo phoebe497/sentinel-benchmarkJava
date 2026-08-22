@@ -1,0 +1,24 @@
+{"event": "run_started", "run_id": "20260822T092326Z-flow", "tag": "flow", "ts": "2026-08-22T09:23:26.417681Z"}
+{"event": "stage_started", "run_id": "20260822T092326Z-flow", "stage": "normalize", "ts": "2026-08-22T09:23:26.427347Z"}
+{"alerts": 33, "duration_ms": 653, "endpoint_groups": 18, "event": "stage_finished", "run_id": "20260822T092326Z-flow", "stage": "normalize", "ts": "2026-08-22T09:23:27.080669Z"}
+{"event": "stage_started", "provider": "nine_router", "run_id": "20260822T092326Z-flow", "stage": "analyse", "ts": "2026-08-22T09:23:27.105156Z"}
+{"duration_ms": 111198, "event": "stage_finished", "failed_groups": 0, "model": "gpt-5.6-luna", "reports": 18, "run_dir": "artifacts/week-6/runs/20260822T092328Z-flow", "run_id": "20260822T092326Z-flow", "stage": "analyse", "ts": "2026-08-22T09:25:21.485705Z"}
+{"event": "stage_started", "run_id": "20260822T092326Z-flow", "stage": "propose", "ts": "2026-08-22T09:25:21.489476Z"}
+{"duration_ms": 42, "event": "stage_finished", "findings_unroutable": 2, "requests": 10, "routes_available": 25, "run_id": "20260822T092326Z-flow", "stage": "propose", "ts": "2026-08-22T09:25:21.531810Z"}
+{"event": "stage_started", "run_id": "20260822T092326Z-flow", "stage": "approve_send_filter", "ts": "2026-08-22T09:25:21.536341Z"}
+{"decision": "approve", "event": "probe", "findings_covered": 3, "injection_flagged": false, "reached_target": true, "route_id": "js-root", "run_id": "20260822T092326Z-flow", "sent": true, "status": 200, "ts": "2026-08-22T09:25:21.622517Z"}
+{"decision": "approve", "event": "probe", "findings_covered": 1, "injection_flagged": false, "reached_target": true, "route_id": "js-ftp-listing", "run_id": "20260822T092326Z-flow", "sent": true, "status": 200, "ts": "2026-08-22T09:25:21.731081Z"}
+{"decision": "approve", "event": "probe", "findings_covered": 1, "injection_flagged": false, "reached_target": true, "route_id": "js-ftp-file", "run_id": "20260822T092326Z-flow", "sent": true, "status": 403, "ts": "2026-08-22T09:25:21.818155Z"}
+{"decision": "reject", "event": "probe", "findings_covered": 1, "injection_flagged": false, "reached_target": false, "route_id": "js-ftp-file", "run_id": "20260822T092326Z-flow", "sent": false, "status": null, "ts": "2026-08-22T09:25:21.834475Z"}
+{"decision": "approve", "event": "probe", "findings_covered": 1, "injection_flagged": false, "reached_target": true, "route_id": "js-app-config", "run_id": "20260822T092326Z-flow", "sent": true, "status": 200, "ts": "2026-08-22T09:25:21.923808Z"}
+{"decision": "approve", "event": "probe", "findings_covered": 1, "injection_flagged": false, "reached_target": true, "route_id": "js-continue-code", "run_id": "20260822T092326Z-flow", "sent": true, "status": 200, "ts": "2026-08-22T09:25:21.985358Z"}
+{"decision": "approve", "event": "probe", "findings_covered": 1, "injection_flagged": false, "reached_target": true, "route_id": "js-robots", "run_id": "20260822T092326Z-flow", "sent": true, "status": 200, "ts": "2026-08-22T09:25:22.047590Z"}
+{"decision": "approve", "event": "probe", "findings_covered": 3, "injection_flagged": false, "reached_target": true, "route_id": "js-sitemap", "run_id": "20260822T092326Z-flow", "sent": true, "status": 200, "ts": "2026-08-22T09:25:22.141911Z"}
+{"decision": "reject", "event": "probe", "findings_covered": 3, "injection_flagged": false, "reached_target": false, "route_id": "js-socket-io", "run_id": "20260822T092326Z-flow", "sent": false, "status": null, "ts": "2026-08-22T09:25:22.159387Z"}
+{"decision": "approve", "event": "probe", "findings_covered": 1, "injection_flagged": false, "reached_target": true, "route_id": "js-styles", "run_id": "20260822T092326Z-flow", "sent": true, "status": 200, "ts": "2026-08-22T09:25:22.292953Z"}
+{"duration_ms": 763, "event": "stage_finished", "records": "artifacts/week-6/probes/20260822T092326Z-flow-probe.jsonl", "run_id": "20260822T092326Z-flow", "sent": 8, "stage": "approve_send_filter", "ts": "2026-08-22T09:25:22.299172Z"}
+{"event": "stage_started", "run_id": "20260822T092326Z-flow", "stage": "verify", "ts": "2026-08-22T09:25:22.315905Z"}
+{"duration_ms": 45816, "event": "stage_finished", "run_id": "20260822T092326Z-flow", "stage": "verify", "ts": "2026-08-22T09:26:10.278499Z", "verdicts_answered_by_a_response": 12, "verdicts_changed_by_a_response": 5}
+{"event": "stage_started", "run_id": "20260822T092326Z-flow", "stage": "score", "ts": "2026-08-22T09:26:10.284080Z"}
+{"duration_ms": 37, "event": "stage_finished", "run_id": "20260822T092326Z-flow", "stage": "score", "ts": "2026-08-22T09:26:10.321358Z", "verdict_distribution": {"confirmed_vulnerable": 6, "insufficient_evidence": 12}}
+{"duration_ms": 158593, "event": "run_finished", "run_id": "20260822T092326Z-flow", "status": "completed", "ts": "2026-08-22T09:26:10.357665Z"}

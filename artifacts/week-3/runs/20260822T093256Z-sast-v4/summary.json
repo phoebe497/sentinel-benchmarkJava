@@ -1,0 +1,8 @@
+{
+  "failed": 0,
+  "guard_passed": 25,
+  "requested": 25,
+  "run_id": "20260822T093256Z-sast-v4",
+  "status": "successful",
+  "successful": 25
+}

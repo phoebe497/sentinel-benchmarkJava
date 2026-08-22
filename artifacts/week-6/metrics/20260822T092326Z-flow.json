@@ -1,0 +1,88 @@
+{
+  "counters": {
+    "alerts.normalized": 33,
+    "probes.approved": 8,
+    "probes.findings_covered": 16,
+    "probes.injection_flagged": 0,
+    "probes.not_routable": 0,
+    "probes.proposed": 10,
+    "probes.reached_target": 8,
+    "probes.rejected": 2,
+    "probes.rejected_but_sent": 0,
+    "probes.sent": 8,
+    "probes.transport_errors": 0,
+    "probes.unroutable_findings": 2,
+    "redactions.EMAIL": 2,
+    "redactions.PHONE": 6,
+    "redactions.PII": 5,
+    "reports.total": 18,
+    "verdicts.after_probe.confirmed_vulnerable": 6,
+    "verdicts.after_probe.insufficient_evidence": 12,
+    "verdicts.before_probe.confirmed_vulnerable": 1,
+    "verdicts.before_probe.insufficient_evidence": 17,
+    "verifications.answered": 12,
+    "verifications.verdict_changed": 5
+  },
+  "duration_ms": 158593,
+  "errors": [],
+  "finished_at": "2026-08-22T09:26:10.337341Z",
+  "log": "artifacts/week-6/logs/20260822T092326Z-flow.jsonl",
+  "reports": 18,
+  "run_id": "20260822T092326Z-flow",
+  "schema_version": "1.0",
+  "stages": [
+    {
+      "alerts": 33,
+      "duration_ms": 653,
+      "endpoint_groups": 18,
+      "stage": "normalize",
+      "status": "ok"
+    },
+    {
+      "duration_ms": 111198,
+      "failed_groups": 0,
+      "model": "gpt-5.6-luna",
+      "reports": 18,
+      "run_dir": "artifacts/week-6/runs/20260822T092328Z-flow",
+      "stage": "analyse",
+      "status": "ok"
+    },
+    {
+      "duration_ms": 42,
+      "findings_unroutable": 2,
+      "requests": 10,
+      "routes_available": 25,
+      "stage": "propose",
+      "status": "ok"
+    },
+    {
+      "duration_ms": 763,
+      "records": "artifacts/week-6/probes/20260822T092326Z-flow-probe.jsonl",
+      "sent": 8,
+      "stage": "approve_send_filter",
+      "status": "ok"
+    },
+    {
+      "duration_ms": 45816,
+      "stage": "verify",
+      "status": "ok",
+      "verdicts_answered_by_a_response": 12,
+      "verdicts_changed_by_a_response": 5
+    },
+    {
+      "duration_ms": 37,
+      "stage": "score",
+      "status": "ok",
+      "verdict_distribution": {
+        "confirmed_vulnerable": 6,
+        "insufficient_evidence": 12
+      }
+    }
+  ],
+  "started_at": "2026-08-22T09:23:26.415339Z",
+  "status": "completed",
+  "verdicts": {
+    "confirmed_vulnerable": 6,
+    "insufficient_evidence": 12
+  }
+}

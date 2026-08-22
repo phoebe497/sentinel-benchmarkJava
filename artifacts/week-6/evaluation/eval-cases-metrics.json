@@ -1,0 +1,244 @@
+{
+  "cases": 10,
+  "cases_source": "datasets/evaluation/week6-eval-cases.jsonl",
+  "counts": {
+    "FN": 0,
+    "FP": 2,
+    "TN": 2,
+    "TP": 4,
+    "abstain_correct": 2,
+    "abstain_missed": 0,
+    "abstain_unexpected": 0,
+    "missing_report": 0
+  },
+  "dast_tag": "flow",
+  "decided": 8,
+  "f1": 0.8,
+  "precision": 0.6667,
+  "recall": 1.0,
+  "results": [
+    {
+      "case_id": "EV-01",
+      "cwe": "CWE-89",
+      "expected_stance": "vulnerable",
+      "expected_verdict": [
+        "confirmed_vulnerable",
+        "likely_vulnerable"
+      ],
+      "graded_stage": "static",
+      "outcome": "TP",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "concat"
+      ],
+      "stage_mismatch": false,
+      "stance": "vulnerable",
+      "subject_id": "BenchmarkTest00008",
+      "verdict": "confirmed_vulnerable",
+      "verdict_accepted": true,
+      "verdict_rationale": "Observation benchmark-open-code-review:BenchmarkTest00008:0010 shows SQL built by concatenation, while the source traces the HTTP header into it. This matches KB-001's confirm indicators for request input reaching an SQL sink without bound parameters."
+    },
+    {
+      "case_id": "EV-02",
+      "cwe": "CWE-328",
+      "expected_stance": "not_vulnerable",
+      "expected_verdict": [
+        "likely_false_positive",
+        "not_vulnerable"
+      ],
+      "graded_stage": "static",
+      "outcome": "FP",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "sha-384",
+        "strong"
+      ],
+      "stage_mismatch": false,
+      "stance": "vulnerable",
+      "subject_id": "BenchmarkTest00009",
+      "verdict": "confirmed_vulnerable",
+      "verdict_accepted": false,
+      "verdict_rationale": "Observation benchmark-deepsec:BenchmarkTest00009:0012 is confirmed: each request reaches FileWriter with append enabled and writes a new record, without an application-level quota or rate limit. The SHA-384 algorithm is strong and not the issue, consistent with KB-328-HASH."
+    },
+    {
+      "case_id": "EV-03",
+      "cwe": "CWE-22",
+      "expected_stance": "vulnerable",
+      "expected_verdict": [
+        "confirmed_vulnerable",
+        "likely_vulnerable"
+      ],
+      "graded_stage": "static",
+      "outcome": "TP",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "parent",
+        "directory",
+        "file(param"
+      ],
+      "stage_mismatch": false,
+      "stance": "vulnerable",
+      "subject_id": "BenchmarkTest00011",
+      "verdict": "confirmed_vulnerable",
+      "verdict_accepted": true,
+      "verdict_rationale": "Observation \"benchmark-deepsec:BenchmarkTest00011:0015\" is confirmed by source: the decoded HTTP header reaches new File(param, \"/Test.txt\") and exists() exposes filesystem state. KB-003 confirms that an untrusted parent directory remains traversal-sensitive even with a constant child."
+    },
+    {
+      "case_id": "EV-04",
+      "cwe": "CWE-614",
+      "expected_stance": "not_vulnerable",
+      "expected_verdict": [
+        "likely_false_positive",
+        "not_vulnerable"
+      ],
+      "graded_stage": "static",
+      "outcome": "FP",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "secure"
+      ],
+      "stage_mismatch": false,
+      "stance": "vulnerable",
+      "subject_id": "BenchmarkTest00016",
+      "verdict": "likely_vulnerable",
+      "verdict_accepted": false,
+      "verdict_rationale": "Observation \"benchmark-deepsec:BenchmarkTest00016:0020\" is supported by source: the request header is URL-decoded and passed directly to the SomeCookie constructor at lines 45-52 and 69. However, \"KB-614-COOKIE\" indicates Secure and HttpOnly mitigate the primary cookie risks, and no downstream security-sensitive use or demonstrated denial of service is supplied."
+    },
+    {
+      "case_id": "EV-05",
+      "cwe": "CWE-330",
+      "expected_stance": "not_vulnerable",
+      "expected_verdict": [
+        "likely_false_positive",
+        "not_vulnerable"
+      ],
+      "graded_stage": "static",
+      "outcome": "TN",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "securerandom"
+      ],
+      "stage_mismatch": false,
+      "stance": "not_vulnerable",
+      "subject_id": "BenchmarkTest00010",
+      "verdict": "likely_false_positive",
+      "verdict_accepted": true,
+      "verdict_rationale": "Observation \"benchmark-deepsec:BenchmarkTest00010:0014\" overstates session impersonation: the cookie value must equal the server-side session attribute at lines 81-82. The code uses SecureRandom, matching KB-330-RAND's false-positive indicator, \"Dùng java.security.SecureRandom cho giá trị bảo mật\"."
+    },
+    {
+      "case_id": "EV-06",
+      "cwe": "CWE-693",
+      "expected_stance": "abstain",
+      "expected_verdict": [
+        "insufficient_evidence"
+      ],
+      "graded_stage": "pre_probe",
+      "outcome": "abstain_correct",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "header",
+        "response"
+      ],
+      "stage_mismatch": false,
+      "stance": "abstain",
+      "subject_id": "/",
+      "verdict": "insufficient_evidence",
+      "verdict_accepted": true,
+      "verdict_rationale": "The response for route_id \"js-root\" is an HTML document and does not include a Content-Security-Policy response header, directly confirming the reported missing CSP weakness."
+    },
+    {
+      "case_id": "EV-07",
+      "cwe": "CWE-693",
+      "expected_stance": "vulnerable",
+      "expected_verdict": [
+        "confirmed_vulnerable",
+        "likely_vulnerable"
+      ],
+      "graded_stage": "post_probe",
+      "outcome": "TP",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "content-security-policy",
+        "missing",
+        "route_id"
+      ],
+      "stage_mismatch": false,
+      "stance": "vulnerable",
+      "subject_id": "/",
+      "verdict": "confirmed_vulnerable",
+      "verdict_accepted": true,
+      "verdict_rationale": "The response for route_id \"js-root\" is an HTML document and does not include a Content-Security-Policy response header, directly confirming the reported missing CSP weakness."
+    },
+    {
+      "case_id": "EV-08",
+      "cwe": "CWE-264",
+      "expected_stance": "not_vulnerable",
+      "expected_verdict": [
+        "likely_false_positive",
+        "not_vulnerable"
+      ],
+      "graded_stage": "post_probe",
+      "outcome": "TN",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "public",
+        "crawler",
+        "robots"
+      ],
+      "stage_mismatch": false,
+      "stance": "not_vulnerable",
+      "subject_id": "/robots.txt",
+      "verdict": "not_vulnerable",
+      "verdict_accepted": true,
+      "verdict_rationale": "The response for route_id \"js-robots\" exposes only standard crawler directives and no sensitive or authenticated data. A publicly accessible /robots.txt behaves as intended, so the CWE-264 finding is not demonstrated."
+    },
+    {
+      "case_id": "EV-09",
+      "cwe": "CWE-497",
+      "expected_stance": "vulnerable",
+      "expected_verdict": [
+        "confirmed_vulnerable",
+        "likely_vulnerable"
+      ],
+      "graded_stage": "post_probe",
+      "outcome": "TP",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "internal",
+        "exposes"
+      ],
+      "stage_mismatch": false,
+      "stance": "vulnerable",
+      "subject_id": "/rest/admin/application-configuration",
+      "verdict": "confirmed_vulnerable",
+      "verdict_accepted": true,
+      "verdict_rationale": "The response at route_id \"js-app-config\" exposes internal address \"192.168.99.100\" in Google OAuth redirect URIs, supporting the reported CWE-497 information disclosure and the previous observation."
+    },
+    {
+      "case_id": "EV-10",
+      "cwe": null,
+      "expected_stance": "abstain",
+      "expected_verdict": [
+        "insufficient_evidence"
+      ],
+      "graded_stage": "static",
+      "outcome": "abstain_correct",
+      "reasoning_matched": true,
+      "reasoning_terms_found": [
+        "observation",
+        "not"
+      ],
+      "stage_mismatch": false,
+      "stance": "abstain",
+      "subject_id": "/juice-shop/node_modules/express/lib/router/index.js:365:14",
+      "verdict": "insufficient_evidence",
+      "verdict_accepted": true,
+      "verdict_rationale": "Observation \"juiceshop-zap-baseline:zap-10109-10109:0031\" only identifies a modern web application; it does not demonstrate a vulnerability. Knowledge document \"KB-693-CSP\" requires response-header and rendering evidence that is absent."
+    }
+  ],
+  "right_for_the_wrong_reason": [],
+  "sast_tag": "sast-v4",
+  "schema_version": "1.0",
+  "stance_accuracy": 0.8,
+  "verdict_exact_rate": 0.8
+}

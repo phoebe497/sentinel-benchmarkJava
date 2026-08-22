@@ -1,0 +1,92 @@
+{
+  "counters": {
+    "alerts.normalized": 33,
+    "probes.approved": 8,
+    "probes.findings_covered": 16,
+    "probes.injection_flagged": 0,
+    "probes.not_routable": 0,
+    "probes.proposed": 10,
+    "probes.reached_target": 8,
+    "probes.rejected": 2,
+    "probes.rejected_but_sent": 0,
+    "probes.sent": 8,
+    "probes.transport_errors": 0,
+    "probes.unroutable_findings": 2,
+    "redactions.EMAIL": 2,
+    "redactions.PHONE": 6,
+    "redactions.PII": 5,
+    "reports.total": 18,
+    "verdicts.confirmed_vulnerable": 2,
+    "verdicts.insufficient_evidence": 14,
+    "verdicts.likely_false_positive": 1,
+    "verdicts.likely_vulnerable": 1,
+    "verifications.answered": 12,
+    "verifications.verdict_changed": 6
+  },
+  "duration_ms": 162835,
+  "errors": [],
+  "finished_at": "2026-08-22T09:22:41.039723Z",
+  "log": "artifacts/week-6/logs/20260822T091952Z-flow.jsonl",
+  "reports": 18,
+  "run_id": "20260822T091952Z-flow",
+  "schema_version": "1.0",
+  "stages": [
+    {
+      "alerts": 33,
+      "duration_ms": 539,
+      "endpoint_groups": 18,
+      "stage": "normalize",
+      "status": "ok"
+    },
+    {
+      "duration_ms": 109756,
+      "failed_groups": 0,
+      "model": "gpt-5.6-luna",
+      "reports": 18,
+      "run_dir": "artifacts/week-6/runs/20260822T091954Z-flow",
+      "stage": "analyse",
+      "status": "ok"
+    },
+    {
+      "duration_ms": 44,
+      "findings_unroutable": 2,
+      "requests": 10,
+      "routes_available": 25,
+      "stage": "propose",
+      "status": "ok"
+    },
+    {
+      "duration_ms": 1051,
+      "records": "artifacts/week-6/probes/20260822T091952Z-flow-probe.jsonl",
+      "sent": 8,
+      "stage": "approve_send_filter",
+      "status": "ok"
+    },
+    {
+      "duration_ms": 51367,
+      "stage": "verify",
+      "status": "ok",
+      "verdicts_answered_by_a_response": 12,
+      "verdicts_changed_by_a_response": 6
+    },
+    {
+      "duration_ms": 24,
+      "stage": "score",
+      "status": "ok",
+      "verdict_distribution": {
+        "confirmed_vulnerable": 7,
+        "insufficient_evidence": 8,
+        "likely_false_positive": 1,
+        "likely_vulnerable": 2
+      }
+    }
+  ],
+  "started_at": "2026-08-22T09:19:52.780558Z",
+  "status": "completed",
+  "verdicts": {
+    "confirmed_vulnerable": 7,
+    "insufficient_evidence": 8,
+    "likely_false_positive": 1,
+    "likely_vulnerable": 2
+  }
+}

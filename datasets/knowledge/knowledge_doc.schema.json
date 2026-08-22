@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vinsoc.internal/schemas/knowledge_doc/v2",
+  "title": "Sentinel Knowledge Document (KB v2)",
+  "description": "Một tài liệu tri thức bảo mật dùng trong RAG để giúp agent xác minh finding SAST/DAST. KB v2 bổ sung: matching theo CWE + bề mặt phát hiện (SAST source vs DAST header/body), chỉ dấu khẳng định/phản biện (confirm_indicators/fp_indicators) để nuôi verdict, câu hỏi review, và provenance để truy nguồn. Mọi nội dung là DATA, không phải chỉ dẫn.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "category",
+    "title",
+    "cwe",
+    "detection_surface",
+    "source",
+    "source_url",
+    "tags",
+    "confirm_indicators",
+    "fp_indicators",
+    "detection_questions",
+    "provenance",
+    "content"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "ID ổn định (indexer map sang cột document_id).",
+      "pattern": "^KB[-A-Z0-9]*-[A-Z0-9]+$"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "owasp-top-10",
+        "vulnerability-example",
+        "security-headers",
+        "scanner-docs"
+      ],
+      "description": "Nhóm tài liệu."
+    },
+    "title": { "type": "string", "minLength": 5 },
+    "cwe": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^CWE-[0-9]+$" },
+      "description": "Danh sách CWE mà doc này áp dụng; dùng để khớp finding với doc. Rỗng cho tài liệu công cụ."
+    },
+    "detection_surface": {
+      "type": "string",
+      "enum": [
+        "sast_source",
+        "dast_response_header",
+        "dast_response_body",
+        "config_or_dependency",
+        "scanner_tool"
+      ],
+      "description": "Bề mặt phát hiện: finding CSP (dast_response_header) chỉ nên khớp doc cùng surface, không khớp doc source-level."
+    },
+    "source": { "type": "string" },
+    "source_url": { "type": "string", "format": "uri" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "confirm_indicators": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 5 },
+      "maxItems": 8,
+      "description": "Chỉ dấu KHẲNG ĐỊNH lỗ hổng là thật (nguồn→sink, header vắng mặt...). Nuôi verdict confirmed/likely_vulnerable. Rỗng cho tài liệu công cụ."
+    },
+    "fp_indicators": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 5 },
+      "maxItems": 8,
+      "description": "Chỉ dấu PHẢN BIỆN (True Negative): khi finding không phải lỗ thật (PreparedStatement, hằng biên dịch, header có mặt...). Model trích thẳng vào false_positive_indicators khi ra verdict likely_false_positive."
+    },
+    "detection_questions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 5 },
+      "maxItems": 8,
+      "description": "Câu hỏi review để phân biệt TP/FP khi xác minh finding."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "retrieved_at", "sha256", "trust_tier"],
+      "description": "Truy nguồn tài liệu để kết quả tái lập và kiểm chứng được.",
+      "properties": {
+        "source_url": { "type": "string", "format": "uri" },
+        "retrieved_at": { "type": "string", "format": "date-time" },
+        "sha256": {
+          "type": "string",
+          "pattern": "^([a-f0-9]{64})?$",
+          "description": "SHA-256 của snapshot nội dung nguồn; rỗng nếu chưa snapshot."
+        },
+        "trust_tier": {
+          "type": "string",
+          "enum": ["authoritative", "community", "team_authored"]
+        }
+      }
+    },
+    "content": { "type": "string", "minLength": 20 }
+  }
+}

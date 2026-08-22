@@ -1,3 +1,6 @@
 [submodule "vendor/BenchmarkJava"]
 	path = vendor/BenchmarkJava
 	url = https://github.com/OWASP-Benchmark/BenchmarkJava.git
+[submodule "vendor/api-gateway"]
+	path = vendor/api-gateway
+	url = https://github.com/phoebe497/API-Gateway.git

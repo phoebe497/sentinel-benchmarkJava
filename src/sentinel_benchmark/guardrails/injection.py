@@ -27,7 +27,10 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("role_override", re.compile(r"(?i)\b(you are now|act as|pretend to be|from now on|new role|ignore your (rules|guidelines))\b")),
     ("output_contract_override", re.compile(r"(?i)\b(do not|don't|stop)\b.{0,20}\b(return|output|use)\b.{0,20}\bjson|\boverride\b.{0,20}\b(schema|contract|format)")),
     ("tool_invocation", re.compile(r"(?i)\b(call|invoke|execute|run)\b.{0,20}\b(tool|function|command|shell|os\.system|subprocess)")),
-    ("data_exfiltration", re.compile(r"(?i)\b(curl|wget|fetch|http[s]?://|base64|exfiltrate)\b.{0,20}(send|post|upload|to)?", re.DOTALL)),
+    # An instruction to move data out, not the mere presence of a URL: real
+    # application responses are full of links, so matching "https://" alone
+    # flagged every HTML page and made the verdict meaningless.
+    ("data_exfiltration", re.compile(r"(?i)\b(curl|wget)\b[^\n]{0,40}https?://|\b(send|post|upload|forward|transmit|exfiltrate|leak)\b[^.\n]{0,60}?(https?://|\bwebhook\b|\bbase64\b)")),
 ]
 
 

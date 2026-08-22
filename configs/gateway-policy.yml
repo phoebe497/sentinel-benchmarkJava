@@ -1,0 +1,150 @@
+# Gateway policy for the Week 6 end-to-end stack.
+#
+# The gateway process (vendor/api-gateway, pinned) reads this file at startup via
+# POLICY_PATH and knows nothing else: allowlist, limits and auth all come from
+# here. This copy is owned by Sentinel because the allowlist is a Sentinel
+# decision (which Juice Shop endpoints the agent may probe); the submodule keeps
+# its own policy.yml for its standalone Week 4 demo.
+#
+# Two upstreams, two purposes:
+#   juice-shop  - the vulnerable web app under test (DAST subject).
+#   demo-api    - the guardrail lab: deterministic responses used to exercise
+#                 injection quarantine, redaction and the limit codes.
+#
+# Neither upstream publishes a port; the gateway is the only way in. ZAP scans
+# juice-shop directly on the internal network (it is a scanner, like Semgrep over
+# a codebase); the agent's request tool has no route except this gateway.
+
+auth:
+  header: X-API-Key
+  key_env: GATEWAY_API_KEY
+
+limits:
+  # Unchanged from the Week 4 policy on purpose: the /slow (6s) and /big (300KB)
+  # demo-api routes prove 504 and truncation against exactly these numbers.
+  rate_per_minute: 30
+  timeout_seconds: 5
+  max_request_bytes: 65536 # 64KB
+  max_response_bytes: 262144 # 256KB
+
+routes:
+  # --- Juice Shop: read-only endpoints the agent may probe ----------------- #
+  # The allowlist stays narrower than the scan surface. What is absent now is
+  # absent for a reason rather than by omission: the AJAX spider also requested
+  # paths it scraped out of a leaked stack trace
+  # (/juice-shop/node_modules/express/lib/router/index.js:365:14), which are not
+  # endpoints of this application in any meaningful sense. Those findings must
+  # come back as "cannot verify", and that refusal is part of the demo.
+  - id: js-root
+    method: GET
+    path: /
+    upstream: http://juice-shop:3000/
+  - id: js-sitemap
+    method: GET
+    path: /sitemap.xml
+    upstream: http://juice-shop:3000/sitemap.xml
+  - id: js-products-list
+    method: GET
+    path: /api/Products
+    upstream: http://juice-shop:3000/api/Products
+  - id: js-product-detail
+    method: GET
+    path: /api/Products/{id}
+    upstream: http://juice-shop:3000/api/Products/{id}
+  - id: js-product-search
+    method: GET
+    path: /rest/products/search
+    upstream: http://juice-shop:3000/rest/products/search
+  - id: js-product-reviews
+    method: GET
+    path: /rest/products/{id}/reviews
+    upstream: http://juice-shop:3000/rest/products/{id}/reviews
+  - id: js-feedbacks
+    method: GET
+    path: /api/Feedbacks
+    upstream: http://juice-shop:3000/api/Feedbacks
+  - id: js-app-config
+    method: GET
+    path: /rest/admin/application-configuration
+    upstream: http://juice-shop:3000/rest/admin/application-configuration
+  - id: js-app-version
+    method: GET
+    path: /rest/admin/application-version
+    upstream: http://juice-shop:3000/rest/admin/application-version
+  - id: js-ftp-listing
+    method: GET
+    path: /ftp
+    upstream: http://juice-shop:3000/ftp
+  # ZAP reports backup and easter-egg files individually (/ftp/coupons_2013.md.bak,
+  # /ftp/eastere.gg). One templated route verifies all of them; the client's path
+  # parameter check keeps the value to a single safe segment, so this cannot be
+  # widened into traversal by a proposal.
+  - id: js-ftp-file
+    method: GET
+    path: /ftp/{file}
+    upstream: http://juice-shop:3000/ftp/{file}
+  - id: js-continue-code
+    method: GET
+    path: /rest/continue-code
+    upstream: http://juice-shop:3000/rest/continue-code
+  # The websocket handshake answers a plain GET with headers, which is exactly
+  # what the clickjacking and security-header findings on it need.
+  - id: js-socket-io
+    method: GET
+    path: /socket.io/
+    upstream: http://juice-shop:3000/socket.io/
+  - id: js-styles
+    method: GET
+    path: /styles.css
+    upstream: http://juice-shop:3000/styles.css
+  - id: js-robots
+    method: GET
+    path: /robots.txt
+    upstream: http://juice-shop:3000/robots.txt
+  - id: js-metrics
+    method: GET
+    path: /metrics
+    upstream: http://juice-shop:3000/metrics
+
+  # The only writable Juice Shop route. It authenticates and stores nothing, so
+  # edge payloads (empty, wrong type, long string, special chars) are safe here.
+  # Every POST carries a special payload by definition, so it always goes through
+  # the human approval gate.
+  - id: js-login
+    method: POST
+    path: /rest/user/login
+    upstream: http://juice-shop:3000/rest/user/login
+
+  # --- Guardrail lab (demo-api), unchanged from the Week 4 allowlist ------- #
+  - id: health
+    method: GET
+    path: /health
+    upstream: http://demo-api:8000/health
+  - id: items-list
+    method: GET
+    path: /api/items
+    upstream: http://demo-api:8000/api/items
+  - id: slow
+    method: GET
+    path: /slow
+    upstream: http://demo-api:8000/slow
+  - id: big
+    method: GET
+    path: /big
+    upstream: http://demo-api:8000/big
+  - id: status
+    method: GET
+    path: /status/{code}
+    upstream: http://demo-api:8000/status/{code}
+  - id: item-detail
+    method: GET
+    path: /api/items/{id}
+    upstream: http://demo-api:8000/api/items/{id}
+  - id: echo
+    method: POST
+    path: /echo
+    upstream: http://demo-api:8000/echo
+  - id: login
+    method: POST
+    path: /login
+    upstream: http://demo-api:8000/login

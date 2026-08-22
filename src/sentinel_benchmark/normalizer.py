@@ -1,13 +1,29 @@
-"""Normalize scanner JSON/JSONL into a stable Project Sentinel finding schema."""
+"""Normalize scanner JSON/JSONL into a stable Project Sentinel finding schema.
+
+Both evidence sources land in the same shape so a single agent, a single prompt
+contract and a single index serve them:
+
+- SAST (Semgrep, LLM reviewers) over BenchmarkJava source -> ``file_or_url`` is a
+  file path plus line numbers.
+- DAST (OWASP ZAP baseline) over the running app -> ``file_or_url`` is a URL and
+  the line numbers are absent.
+"""
 from __future__ import annotations
 
 import argparse
 import json
 import re
+from html import unescape
 from pathlib import Path
 from typing import Any, Iterable
 
 SEVERITY = {"critical": "critical", "high": "high", "high_bug": "high", "error": "high", "medium": "medium", "warning": "medium", "bug": "medium", "low": "low", "info": "info", "informational": "info"}
+
+# ZAP risk/confidence are numeric strings in the JSON report.
+ZAP_RISK = {"3": "high", "2": "medium", "1": "low", "0": "info"}
+ZAP_CONFIDENCE = {"0": 0.0, "1": 0.25, "2": 0.5, "3": 0.75, "4": 1.0}
+_TAG_RE = re.compile(r"<[^>]+>")
+_SPACE_RE = re.compile(r"\s+")
 
 
 def _read_json_records(path: Path) -> Iterable[dict[str, Any]]:
@@ -17,7 +33,7 @@ def _read_json_records(path: Path) -> Iterable[dict[str, Any]]:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError:
-        for line in text.splitlines():
+        for line in text.split("\n"):
             try:
                 item = json.loads(line)
             except json.JSONDecodeError:
@@ -88,7 +104,77 @@ def normalize_record(item: dict[str, Any], index: int, source: Path) -> dict[str
     }
 
 
+def _plain(html: str) -> str:
+    """ZAP ships desc/solution as HTML fragments; keep the text, drop the markup."""
+    return _SPACE_RE.sub(" ", unescape(_TAG_RE.sub(" ", html or ""))).strip()
+
+
+def is_zap_report(payload: Any) -> bool:
+    """A ZAP JSON report is a single object with a ``site`` list of alerts."""
+    return isinstance(payload, dict) and isinstance(payload.get("site"), list)
+
+
+def _zap_cwe(alert: dict[str, Any]) -> str | None:
+    raw = str(alert.get("cweid") or "").strip()
+    return f"CWE-{raw}" if raw.isdigit() and int(raw) > 0 else None
+
+
+def normalize_zap_record(alert: dict[str, Any], instance: dict[str, Any], index: int, source: Path) -> dict[str, Any]:
+    """One record per (alert, instance): the same alert on two URLs is two findings."""
+    method = str(instance.get("method") or "GET").upper()
+    uri = str(instance.get("uri") or "")
+    param = str(instance.get("param") or "")
+    # Everything below comes from the scanned application, so it stays untrusted
+    # data: the injection filter and redaction run on it downstream.
+    evidence_parts = [f"{method} {uri}"]
+    if param:
+        evidence_parts.append(f"param={param}")
+    if instance.get("evidence"):
+        evidence_parts.append(f"evidence={instance['evidence']}")
+    if instance.get("otherinfo"):
+        evidence_parts.append(f"otherinfo={_plain(str(instance['otherinfo']))}")
+    description = _plain(str(alert.get("desc") or ""))
+    total = str(alert.get("count") or "").strip()
+    if total and total.isdigit() and int(total) > 1:
+        description = f"{description} ZAP reported this alert on {total} URLs.".strip()
+    return {
+        "finding_id": f"zap-{alert.get('pluginid') or 'alert'}-{alert.get('alertRef') or index}",
+        "tool": "OWASP ZAP",
+        "severity": ZAP_RISK.get(str(alert.get("riskcode") or "0"), "info"),
+        "file_or_url": uri,
+        "line_start": None,
+        "line_end": None,
+        "title": str(alert.get("name") or alert.get("alert") or "ZAP alert"),
+        "cwe": _zap_cwe(alert),
+        "owasp": None,
+        "description": description,
+        "evidence": " ".join(evidence_parts),
+        "recommendation": _plain(str(alert.get("solution") or "")),
+        "confidence": ZAP_CONFIDENCE.get(str(alert.get("confidence") or ""), None),
+        "source_artifact": str(source.as_posix()),
+    }
+
+
+def normalize_zap_report(payload: dict[str, Any], source: Path) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for site in payload.get("site") or []:
+        for alert in site.get("alerts") or []:
+            # An alert with no instances is still an observation about the site.
+            instances = alert.get("instances") or [{"uri": site.get("@name", ""), "method": "GET"}]
+            for instance in instances:
+                records.append(normalize_zap_record(alert, instance, len(records) + 1, source))
+    return records
+
+
 def normalize_file(source: Path) -> list[dict[str, Any]]:
+    text = source.read_text(encoding="utf-8", errors="replace").strip()
+    if text.startswith("{"):
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            payload = None
+        if is_zap_report(payload):
+            return normalize_zap_report(payload, source)
     return [normalize_record(item, i, source) for i, item in enumerate(_read_json_records(source), 1)]
 
 

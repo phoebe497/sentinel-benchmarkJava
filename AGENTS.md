@@ -8,8 +8,19 @@ agent with safety controls and an end-to-end flow. (Week 4, the standalone
 API Gateway, lives in a separate repository by mentor agreement; this repo
 integrates with it as an external service in Week 6, it does not vendor it.)
 
-The active evaluation corpus is the first 100 OWASP BenchmarkJava test
-cases. WebGoat is not part of the active dataset.
+There are two evidence sources and exactly one agent:
+
+- **SAST** over the first 100 OWASP BenchmarkJava test cases. This corpus
+ ships ground truth, so it is what the agent's accuracy is measured on.
+ It is source code only and is never deployed.
+- **DAST** over OWASP Juice Shop running in the lab (`docker-compose.yml`),
+ scanned by the OWASP ZAP baseline (passive). It has no ground truth, but it
+ has live endpoints, so it is the only source that can produce a probe
+ request, an approval decision and a response to filter.
+
+Both are normalized into the same observation schema and analysed by the same
+agent under the same output contract. WebGoat is not part of the active
+dataset.
 
 The project must preserve a reproducible path from:
 
@@ -33,17 +44,41 @@ Each stage must remain independently runnable and independently verifiable.
 
 - `src/sentinel_benchmark/`: reusable application and data-processing code
   (grows across weeks; never fork per week).
-  - `analysis/`: Week 3 agent (grouping, prompting, providers, guard,
-    runner, evaluation, chat, artifacts).
+  - `analysis/`: the agent (grouping, prompting, providers, guard, runner,
+    evaluation, chat, artifacts). Since Week 6 also `verification.py` (a probe
+    response re-decides one verdict) and `scoring.py` (TP/FP/FN/TN plus a
+    separate abstain column, joined against ground truth only after the run).
+    `evalset.py` grades the hand-written cases in `datasets/evaluation/`, which
+    cover what the corpus cannot: a live endpoint, whether an abstention was
+    right, and whether the rationale named the deciding detail.
+    Every report carries a `verdict` from a fixed five-value vocabulary whose
+    rationale must cite an `observation_id`; see
+    `docs/methodology/verdict-and-scoring.md`.
   - `guardrails/`: Week 5 safety controls — `injection.py`,
     `redaction.py`, `approval.py` (add here; keep them importable and
     pure so tests can call them directly).
+  - `probe/`: Week 6 request tool — `payloads.py`, `client.py`,
+    `proposal.py`, `runner.py`. This is the only egress: it addresses the
+    gateway by `route_id` from the published allowlist and cannot be handed a
+    URL, and `runner.run_probe` is the single path allowed to send (approval
+    gate first, then injection scan and redaction on the response).
+  - `runlog.py`: one JSONL log plus one metrics file per end-to-end run. It
+    redacts at the sink, so no call site can forget that a log is data too.
 - `app/`: Streamlit entrypoint.
 - `vendor/BenchmarkJava/`: pinned upstream Git submodule.
+- `vendor/api-gateway/`: the Week 4 API Gateway, a pinned Git submodule of its
+ own repository. It stays an external service: the compose stack builds its
+ image from the pinned commit, and its source is never copied into `src/`.
+ Its allowlist for the Week 6 stack lives in `configs/gateway-policy.yml`
+ (a Sentinel decision, mounted into the container).
 - `datasets/`: input manifests, knowledge documents, guardrail fixtures
-  (crafted injection responses) and the Week 6 evaluation set with
-  team-authored expected answers.
-- `scripts/`: `analyze.py` CLI and `scripts/security/` scanner/eval harness.
+  (crafted injection responses) and `evaluation/week6-eval-cases.jsonl`, whose
+  expected answers are hand-written from the source or the response. Each case
+  carries a `deciding_evidence` argument, so when the agent disagrees the case
+  has to defend itself with a specific line rather than a feeling.
+- `scripts/`: `analyze.py` CLI, `probe.py` (interactive request tool),
+  `flow.py` (the whole Week 6 chain in one process, logged and measured), and
+  `scripts/security/` scanner/eval/hygiene harness.
 - `tests/`: automated tests, including guardrail and redaction tests.
 - `artifacts/week-N/`: machine-readable raw output, logs and metrics.
 - `reports/week-N/`: short mentor-facing weekly reports.
@@ -55,6 +90,17 @@ Do not create separate copies of shared source code for each week.
 ## 3. Benchmark integrity
 
 - Keep BenchmarkJava pinned to the commit declared in the dataset manifest.
+- Only ZAP may reach Juice Shop directly, and only from inside the internal
+ Docker network, because it is a scanner (the DAST counterpart of Semgrep
+ reading a codebase). The agent's request tool knows one address, the
+ gateway, and has no other route to any target.
+- DAST alert counts are not reproducible between runs: the spider explores a
+ live SPA. Assert provenance (scanner version, image digest, command, output
+ digest) rather than counts, and regenerate
+ `artifacts/week-6/dast/manifest.json` with `scripts/security/zap_dast.py`
+ instead of editing it by hand.
+- Juice Shop has no ground truth. Never let a scanner claim about it be
+ recorded, displayed or scored as a verified fact.
 - Week 1 compatibility scope is:
   `BenchmarkTest00001.java` through `BenchmarkTest00100.java`.
 - Do not send the ground-truth CSV or Benchmark metadata to a scanner.

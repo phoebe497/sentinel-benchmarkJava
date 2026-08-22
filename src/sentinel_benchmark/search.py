@@ -77,7 +77,7 @@ def tokens(text: str) -> set[str]:
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
     rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").split("\n"):
         if line.strip():
             rows.append(json.loads(line))
     return rows

@@ -14,17 +14,23 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from dotenv import load_dotenv
-from sentinel_benchmark.analysis.artifacts import atomic_json, list_runs, load_run
+from sentinel_benchmark.analysis.artifacts import atomic_json, list_runs, load_run, read_jsonl, write_checksums, write_jsonl
+from sentinel_benchmark.analysis.evalset import failures, load_cases, score_cases
 from sentinel_benchmark.analysis.evaluation import evaluate_runs, select_by_tag, write_grouping_metrics
-from sentinel_benchmark.analysis.grouping import group_checksum, load_groups
+from sentinel_benchmark.analysis.grouping import group_checksum, load_dast_groups, load_groups
 from sentinel_benchmark.analysis.providers import FakeProvider, NineRouterProvider
 from sentinel_benchmark.analysis.runner import run_batch
+from sentinel_benchmark.analysis.source_context import default_roots
+from sentinel_benchmark.analysis.scoring import false_cases, load_ground_truth, score_reports
+from sentinel_benchmark.analysis.verification import apply_verification, verify_report
 from sentinel_benchmark.indexer import build
 
 MANIFEST = ROOT / "configs" / "sources.json"
 KB = ROOT / "datasets" / "knowledge" / "security-topics.jsonl"
 PREDICTIONS = ROOT / "artifacts" / "week-1" / "semgrep-20260806" / "variants" / "security-audit" / "predictions.jsonl"
 WEEK3 = ROOT / "artifacts" / "week-3"
+WEEK6 = ROOT / "artifacts" / "week-6"
+PROBES = WEEK6 / "probes"
 
 
 def indexed_groups() -> tuple[Path, list]:
@@ -163,25 +169,129 @@ Real LLM hiện mới được smoke test trên {real.get('requested', 0)} group
     output.write_text(text, encoding="utf-8", newline="\n")
 
 
+def indexed_dast_groups() -> tuple[Path, list]:
+    temp_dir = Path(tempfile.mkdtemp(prefix="sentinel-week6-"))
+    db = temp_dir / "sentinel.db"
+    build(MANIFEST, db, KB)
+    return db, load_dast_groups(db)
+
+
+def run_root_for(dataset: str) -> Path:
+    """SAST runs stay under week-3; the DAST branch is a Week 6 artifact."""
+    return WEEK3 if dataset == "sast" else WEEK6
+
+
+def score_run(dataset: str, tag: str) -> dict:
+    """Join ground truth onto a finished run. Never before it is on disk."""
+    root = run_root_for(dataset)
+    manifest = select_by_tag(root, tag)
+    if not manifest:
+        raise FileNotFoundError(f"No run tagged {tag!r} under {root.relative_to(ROOT)}")
+    run = load_run(Path(manifest["run_dir"]))
+    reports = run["reports"]
+    truth = load_ground_truth(PREDICTIONS)
+    scored = score_reports(reports, truth)
+    out_dir = root / "evaluation"
+    atomic_json(out_dir / f"verdict-metrics-{tag}.json", {**scored, "run_id": manifest["run_id"], "tag": tag, "ground_truth_source": str(PREDICTIONS.relative_to(ROOT).as_posix())})
+    write_jsonl(out_dir / f"false-cases-{tag}.jsonl", false_cases(scored, reports))
+    return {key: scored[key] for key in ("reports", "scored", "counts", "abstention_rate", "precision", "recall", "f1", "accuracy", "verdict_distribution")}
+
+
+def verify_run(dataset: str, tag: str, provider_name: str) -> dict:
+    """Re-decide the verdicts of a finished run against recorded probe responses.
+
+    The probe records are read from artifacts, not fetched here: sending is the
+    request tool's job and it requires human approval, so this step can never
+    cause a request.
+    """
+    root = run_root_for(dataset)
+    manifest = select_by_tag(root, tag)
+    if not manifest:
+        raise FileNotFoundError(f"No run tagged {tag!r} under {root.relative_to(ROOT)}")
+    run_dir = Path(manifest["run_dir"])
+    reports = load_run(run_dir)["reports"]
+    probe_files = sorted(PROBES.glob("*-probe.jsonl"))
+    if not probe_files:
+        raise FileNotFoundError("No probe records found. Run: python scripts/probe.py run")
+    probes: dict[str, dict] = {}
+    for row in read_jsonl(probe_files[-1]):
+        # One response can answer several findings on the same endpoint, and a
+        # later attempt supersedes an earlier one.
+        for group_id in row.get("analysis_group_ids") or []:
+            probes[str(group_id)] = row
+    chosen = provider(provider_name)
+    chosen.preflight()
+    updated, exchanges, tally = [], [], Counter()
+    for report in reports:
+        probe = probes.get(str(report.get("analysis_group_id")))
+        if probe is None:
+            updated.append(report)
+            tally["no_probe"] += 1
+            continue
+        verification, exchange = verify_report(report, probe, provider=chosen)
+        if exchange:
+            exchanges.append(exchange)
+        updated.append(apply_verification(report, verification))
+        tally["changed" if verification.changed else ("verified" if verification.reached_target else "unverified")] += 1
+    write_jsonl(run_dir / "reports.jsonl", updated)
+    write_jsonl(run_dir / "verification-responses.jsonl", exchanges)
+    write_checksums(run_dir)
+    return {"run_id": manifest["run_id"], "probe_source": str(probe_files[-1].relative_to(ROOT).as_posix()), **dict(sorted(tally.items()))}
+
+
+EVAL_CASES = ROOT / "datasets" / "evaluation" / "week6-eval-cases.jsonl"
+
+
+def eval_cases(sast_tag: str, dast_tag: str) -> dict:
+    """Grade the hand-written cases against the newest run of each branch.
+
+    Both branches are needed because the cases span them: the corpus supplies no
+    expected answer for a Juice Shop endpoint, and a live probe has nothing to
+    say about a static false positive.
+    """
+    cases = load_cases(EVAL_CASES)
+    reports: list[dict] = []
+    for dataset, tag in (("sast", sast_tag), ("dast", dast_tag)):
+        manifest = select_by_tag(run_root_for(dataset), tag)
+        if not manifest:
+            raise FileNotFoundError(f"No {dataset} run tagged {tag!r}")
+        reports.extend(load_run(Path(manifest["run_dir"]))["reports"])
+    scored = score_cases(cases, reports)
+    out_dir = WEEK6 / "evaluation"
+    atomic_json(out_dir / "eval-cases-metrics.json", {**scored, "sast_tag": sast_tag, "dast_tag": dast_tag, "cases_source": str(EVAL_CASES.relative_to(ROOT).as_posix())})
+    write_jsonl(out_dir / "eval-cases-failures.jsonl", failures(scored, cases))
+    return {key: scored[key] for key in ("cases", "counts", "precision", "recall", "f1", "stance_accuracy", "verdict_exact_rate", "right_for_the_wrong_reason")}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("baseline")
     pre = sub.add_parser("preflight"); pre.add_argument("--provider", choices=["fake", "nine_router"], required=True)
-    run = sub.add_parser("run"); run.add_argument("--provider", choices=["fake", "nine_router"], required=True); run.add_argument("--limit", type=int); run.add_argument("--group-id"); run.add_argument("--tag", required=True)
+    run = sub.add_parser("run"); run.add_argument("--provider", choices=["fake", "nine_router"], required=True); run.add_argument("--limit", type=int); run.add_argument("--group-id"); run.add_argument("--tag", required=True); run.add_argument("--dataset", choices=["sast", "dast"], default="sast"); run.add_argument("--no-source", action="store_true", help="omit corpus source from the payload (ablation)")
     evaluate = sub.add_parser("evaluate"); evaluate.add_argument("--fake-tag", required=True); evaluate.add_argument("--real-tag")
+    score = sub.add_parser("score"); score.add_argument("--tag", required=True); score.add_argument("--dataset", choices=["sast", "dast"], default="sast")
+    cases = sub.add_parser("eval-cases"); cases.add_argument("--sast-tag", default="sast-final"); cases.add_argument("--dast-tag", default="flow")
+    verify = sub.add_parser("verify"); verify.add_argument("--tag", required=True); verify.add_argument("--dataset", choices=["sast", "dast"], default="dast"); verify.add_argument("--provider", choices=["fake", "nine_router"], required=True)
     report = sub.add_parser("report"); report.add_argument("--real-tag", required=True); report.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "baseline": result = baseline()
     elif args.command == "preflight": result = provider(args.provider).preflight()
     elif args.command == "run":
-        db, groups = indexed_groups()
+        db, groups = indexed_dast_groups() if args.dataset == "dast" else indexed_groups()
         if args.group_id:
             groups = [group for group in groups if group.analysis_group_id == args.group_id]
             if not groups:
                 raise ValueError(f"Unknown analysis group: {args.group_id}")
-        chosen = provider(args.provider); chosen.preflight(); path = run_batch(groups=groups, db_path=db, provider=chosen, run_root=WEEK3, tag=args.tag, limit=args.limit); result = {"run_dir": str(path.relative_to(ROOT))}
+        chosen = provider(args.provider); chosen.preflight()
+        # Corpus source only exists for the benchmark; a live endpoint has none.
+        roots = None if args.dataset == "dast" or args.no_source else default_roots(ROOT)
+        path = run_batch(groups=groups, db_path=db, provider=chosen, run_root=run_root_for(args.dataset), tag=args.tag, limit=args.limit, source_roots=roots)
+        result = {"run_dir": str(path.relative_to(ROOT)), "source_context": roots is not None}
     elif args.command == "evaluate": result = evaluate_runs(WEEK3, fake_tag=args.fake_tag, real_tag=args.real_tag)
+    elif args.command == "score": result = score_run(args.dataset, args.tag)
+    elif args.command == "verify": result = verify_run(args.dataset, args.tag, args.provider)
+    elif args.command == "eval-cases": result = eval_cases(args.sast_tag, args.dast_tag)
     else: generate_report(args.real_tag, args.output); result = {"output": str(args.output)}
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

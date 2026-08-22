@@ -24,11 +24,28 @@ PLACEHOLDERS = {
 }
 
 # Object keys whose values are structural identifiers and must never be rewritten.
+#
+# This list is deliberately explicit rather than a pattern like "*_id": an
+# application response may well carry a `user_id` or `customer_id` that must be
+# masked, so blanket-skipping identifier-shaped names would punch a hole in the
+# redaction. The cost is that a newly added identifier field must be listed
+# here, and `tests/test_week5_guardrails.py` fails when one is missing —
+# because a mangled identifier silently breaks the join between a probe record
+# and the report it belongs to.
 DEFAULT_SKIP_KEYS: frozenset[str] = frozenset(
     {
         "observation_id",
         "observation_ids",
         "analysis_group_id",
+        "analysis_group_ids",
+        "route_id",
+        "payload_id",
+        "finding_id",
+        "subject_id",
+        "subject_kind",
+        "dataset",
+        "reported_cwes",
+        "verdict",
         "benchmark_test_id",
         "expected_cwe",
         "reported_cwe",
@@ -64,6 +81,11 @@ _API_KEY_RE = re.compile(
     r"\b("
     r"sk-[A-Za-z0-9\-_]{8,}"
     r"|rk_[A-Za-z0-9]{8,}"
+    # Stripe-style keys carry the environment in the prefix, so the underscore
+    # form must be listed separately: `[A-Za-z0-9]` stops at the underscore in
+    # `sk_live_...`, which left a live key unmasked when nothing like "Bearer"
+    # or "key=" preceded it.
+    r"|(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{10,}"
     r"|ghp_[A-Za-z0-9]{20,}"
     r"|github_pat_[A-Za-z0-9_]{20,}"
     r"|gho_[A-Za-z0-9]{20,}"

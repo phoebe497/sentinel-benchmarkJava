@@ -68,7 +68,10 @@ def parse_chat_response(response: httpx.Response) -> dict[str, Any]:
     reasoning_parts: list[str] = []
     result: dict[str, Any] = {"id": None, "model": None, "usage": None}
     finish_reason = None
-    for line in response.text.splitlines():
+    # SSE terminates a line with CRLF, CR or LF — and nothing else. Using
+    # splitlines() here would also break on U+2028, which models do emit, and
+    # the half after the break would be dropped for not starting with "data:".
+    for line in re.split(r"\r\n|\r|\n", response.text):
         if not line.startswith("data:"):
             continue
         data = line[5:].strip()
@@ -98,13 +101,23 @@ def parse_chat_response(response: httpx.Response) -> dict[str, Any]:
 
 
 class FakeProvider:
+    """A deterministic stand-in so the pipeline runs with no API key.
+
+    It is not an analyst and must not pretend to be one: it never returns
+    ``confirmed_vulnerable``, because a fixed rule has read nothing. Metrics
+    from a fake run measure the plumbing — schema validity, guard pass rate,
+    evidence linkage — and say nothing about analysis quality.
+    """
+
     name = "fake"
-    model = "deterministic-evidence-v1"
+    model = "deterministic-evidence-v2"
 
     def preflight(self) -> dict[str, Any]:
         return {"provider": self.name, "model": self.model, "available": True}
 
     def analyze(self, *, system_prompt: str, user_payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        if "probe_observation" in user_payload:
+            return self._verify(user_payload)
         evidence = user_payload["scanner_evidence"]
         knowledge = user_payload["knowledge"]
         order = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
@@ -119,12 +132,44 @@ class FakeProvider:
             limitations.append("No matching knowledge document was retrieved.")
         if any(not item.get("excerpt") for item in evidence):
             limitations.append("At least one scanner observation has no evidence excerpt.")
+        observation_id = evidence[0]["observation_id"] if evidence else ""
+        kb_id = knowledge[0]["document_id"] if knowledge else ""
+        has_excerpt = any(str(item.get("excerpt") or "").strip() for item in evidence)
+        if not has_excerpt:
+            verdict = "insufficient_evidence"
+            rationale = f"Observation {observation_id} carries no readable excerpt, so this deterministic pass cannot judge the flow."
+            if not limitations:
+                limitations.append("No evidence excerpt was available to analyse.")
+        else:
+            verdict = "likely_vulnerable"
+            rationale = f"Observation {observation_id} reports the weakness at a concrete location, and {kb_id or 'no knowledge document'} describes the same class, but a fixed rule cannot trace the flow, so this stops short of confirmation."
         return {
             "severity_assessment": severity,
+            "verdict": verdict,
+            "verdict_rationale": rationale,
+            "false_positive_indicators": [],
             "explanation": explanation,
             "verification_steps": ["Inspect the reported location and trace untrusted input to the security-sensitive sink.", "Reproduce with a harmless payload in an isolated test environment."],
             "remediation": [remediation_text[:1200]], "limitations": limitations,
             "analysis_confidence": confidence,
+        }, {"request_id": None, "model": self.model, "latency_ms": 0, "token_usage": None, "retry_count": 0}
+
+    def _verify(self, user_payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Deterministic post-probe pass: report what the response shows, keep the verdict.
+
+        A fixed rule may state observable facts, but revising a verdict is a
+        judgement call, so this stub declines to make one.
+        """
+        probe = user_payload["probe_observation"]
+        headers = probe.get("response_headers") or {}
+        route_id = probe.get("route_id") or ""
+        observed = [f"HTTP {probe.get('status')} through route {route_id}."]
+        for header in ("content-security-policy", "x-frame-options"):
+            observed.append(f"Response header {header} is {'present' if header in headers else 'absent'}.")
+        return {
+            "verdict": user_payload.get("previous_verdict") or "insufficient_evidence",
+            "verdict_rationale": f"Route {route_id} answered and its headers were recorded, but this deterministic pass does not revise a verdict.",
+            "observed": observed[:8],
         }, {"request_id": None, "model": self.model, "latency_ms": 0, "token_usage": None, "retry_count": 0}
 
 
@@ -143,14 +188,20 @@ class NineRouterProvider:
         self.max_retries = max_retries
 
     @classmethod
-    def from_env(cls) -> "NineRouterProvider":
+    def from_env(cls, *, model_env: str = "CUSTOM_SCAN_MODEL") -> "NineRouterProvider":
         """Build the OpenAI-compatible provider from the OpenCode zen gateway.
 
         Every outbound LLM call from this class goes to OPENCODE_BASE_URL with
         OPENCODE_API_KEY. Local 9Router variables are not read.
+
+        There is one agent and, by default, one model: ``CUSTOM_SCAN_MODEL``
+        serves both the analysis pass and the post-probe verification pass, so a
+        change in accuracy is attributable to the pass rather than to the model.
+        ``model_env`` exists only to run a deliberate, recorded A/B on one pass;
+        it falls back to ``CUSTOM_SCAN_MODEL`` when the named variable is unset.
         """
         api_key = os.getenv("OPENCODE_API_KEY", "")
-        model = os.getenv("CUSTOM_SCAN_MODEL", "")
+        model = os.getenv(model_env, "") or os.getenv("CUSTOM_SCAN_MODEL", "")
         base_url = os.getenv("OPENCODE_BASE_URL", "https://opencode.ai/zen/go/v1")
         return cls(
             base_url=base_url,

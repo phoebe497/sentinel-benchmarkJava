@@ -19,5 +19,12 @@
     "tool": "Semgrep security-audit",
     "path": "artifacts/week-1/semgrep-20260806/variants/security-audit/raw.json",
     "run_id": "20260806T074509Z-semgrep-first100"
+  },
+  {
+    "id": "juiceshop-zap-baseline",
+    "dataset": "juice-shop-dast",
+    "tool": "OWASP ZAP",
+    "path": "artifacts/week-6/dast/zap-baseline.json",
+    "run_id": "20260822T043255Z-zap-juiceshop-baseline"
   }
 ]

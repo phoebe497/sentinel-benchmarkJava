@@ -10,6 +10,20 @@ from typing import Any, Iterable
 from sentinel_benchmark.guardrails.redaction import redact_obj
 
 
+# Characters that are legal inside a JSON string but that `str.splitlines()`,
+# and some JSON parsers in browsers, treat as line breaks. A model that emits
+# one of these would otherwise split a JSONL record in half, and the reader
+# would fail — or worse, silently read two malformed halves. Escaping them at
+# write time keeps one record on one line for every reader, not just ours.
+_LINE_BREAKING = {"\u2028": "\\u2028", "\u2029": "\\u2029", "\u0085": "\\u0085"}
+
+
+def _one_line(text: str) -> str:
+    for raw, escaped in _LINE_BREAKING.items():
+        text = text.replace(raw, escaped)
+    return text
+
+
 def atomic_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     value = redact_obj(value)
@@ -26,7 +40,7 @@ def atomic_json(path: Path, value: Any) -> None:
 
 def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = "".join(json.dumps(redact_obj(row), ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n" for row in rows)
+    text = "".join(_one_line(json.dumps(redact_obj(row), ensure_ascii=False, sort_keys=True, separators=(",", ":"))) + "\n" for row in rows)
     fd, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
@@ -40,7 +54,10 @@ def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    # Split on "\n" only. A JSONL record is newline-delimited by definition, and
+    # `splitlines()` would additionally break on U+2028 and friends, shredding
+    # any record that legitimately contains one.
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").split("\n") if line.strip()]
 
 
 def write_checksums(run_dir: Path) -> None:

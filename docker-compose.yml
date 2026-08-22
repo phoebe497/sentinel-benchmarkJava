@@ -1,0 +1,108 @@
+# The Week 6 lab stack: a vulnerable web app, a guardrail lab, the API Gateway in
+# front of both, and an on-demand DAST scanner.
+#
+# Topology IS the security argument. Only the gateway publishes a port; both
+# upstreams live on `internal: true` (no route to the host), so every request the
+# agent's request tool makes provably passed the allowlist in
+# configs/gateway-policy.yml. Adding `ports:` to juice-shop or demo-api would
+# silently destroy that guarantee.
+#
+# ZAP is the exception, and deliberately so: it sits ON the internal network and
+# scans juice-shop directly, because it is a scanner (the DAST counterpart of
+# Semgrep reading a codebase), not the agent. The agent never gets that path.
+#
+# Bring it up:
+#   bash scripts/stack.sh up          # generates GATEWAY_API_KEY on first run
+#   bash scripts/stack.sh scan        # ZAP baseline -> artifacts/week-6/dast/
+#   bash scripts/stack.sh down
+
+name: sentinel
+
+services:
+  gateway:
+    build: vendor/api-gateway/gateway
+    ports:
+      - "8080:8080"
+    environment:
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY:?run scripts/stack.sh up to generate a key}
+      # The allowlist is a Sentinel decision, so the policy is mounted from this
+      # repo instead of the copy baked into the submodule image.
+      POLICY_PATH: /app/policy.yml
+      GATEWAY_AUDIT_PATH: /app/data/gateway-audit.jsonl
+    volumes:
+      - ./configs/gateway-policy.yml:/app/policy.yml:ro
+      - ./artifacts/week-6/gateway:/app/data
+    networks:
+      - edge
+      - internal
+    depends_on:
+      demo-api:
+        condition: service_started
+      juice-shop:
+        condition: service_healthy
+
+  # OWASP Juice Shop: the intentionally vulnerable app under test. Never expose
+  # this outside the lab.
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    # Intentionally NO ports: reachable only through the gateway (or by ZAP,
+    # which shares the internal network).
+    networks:
+      - internal
+    healthcheck:
+      # The image is distroless: no shell, and node is not on PATH for `exec`.
+      test:
+        - CMD
+        - /nodejs/bin/node
+        - -e
+        - fetch('http://127.0.0.1:3000/rest/admin/application-version').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+
+  # Guardrail lab from the Week 4 submodule: deterministic responses used to
+  # exercise injection quarantine, redaction and the gateway limit codes.
+  demo-api:
+    build: vendor/api-gateway/targets/demo-api
+    networks:
+      - internal
+
+  # On-demand only (`--profile scan`), so `up` never starts a scanner.
+  zap:
+    # Pinned: the scanner version is part of the run manifest, so it must not
+    # drift silently between runs.
+    image: zaproxy/zap-stable:2.17.0
+    profiles:
+      - scan
+    networks:
+      - internal
+    volumes:
+      - ./artifacts/week-6/dast:/zap/wrk:rw
+    # Baseline = passive only: it spiders and reports what the traffic reveals,
+    # it never attacks. -I keeps the exit code 0 on warnings so the pipeline can
+    # continue and the agent, not the scanner, decides what matters.
+    command:
+      - zap-baseline.py
+      - -t
+      - http://juice-shop:3000
+      - -J
+      - zap-baseline.json
+      - -r
+      - zap-baseline.html
+      - -m
+      - "3"
+      # Juice Shop is an Angular SPA: without the AJAX spider the scan only sees
+      # static assets and never observes the /api and /rest responses the app
+      # actually serves, which is exactly where the agent's probes will look.
+      - -j
+      - -I
+    depends_on:
+      juice-shop:
+        condition: service_healthy
+
+networks:
+  edge:
+    driver: bridge
+  internal:
+    internal: true

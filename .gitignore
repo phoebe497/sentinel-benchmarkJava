@@ -18,6 +18,7 @@ datasets/processed/
 artifacts/generated/
 artifacts/ci/
 artifacts/week-5/ui-approval-events.jsonl
+artifacts/week-6/probes/ui-live-probe.jsonl
 *.db
 .scan-targets/
 preview.md

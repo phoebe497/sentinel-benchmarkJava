@@ -26,6 +26,31 @@ def test_offline_chat_is_grounded_in_allowed_ids(tmp_path: Path) -> None:
     assert metadata["provider"] == "offline_artifact"
 
 
+def test_offline_chat_does_not_ignore_the_question(tmp_path: Path) -> None:
+    db = tmp_path / "sentinel.db"
+    build(ROOT / "configs/sources.json", db, ROOT / "datasets/knowledge/security-topics.jsonl")
+    group = load_groups(db, PREDICTIONS)[0]
+    knowledge = search_index(db, f"{group.expected_cwe} {group.category}", "knowledge", 3)
+    report = {
+        "report_id": "AR-test",
+        "severity_assessment": "high",
+        "explanation": "Untrusted input reaches a SQL sink without a parameterized query in this test.",
+        "verification_steps": ["Open the cited file and confirm the sink executes the concatenated string."],
+        "remediation": ["Use a PreparedStatement with bound parameters."],
+        "limitations": ["Source-to-sink still needs a human pass."],
+    }
+    verify = build_chat_payload(question="How should I verify this vulnerability?", group=group, knowledge=knowledge, report=report)
+    fix = build_chat_payload(question="How should this be remediated?", group=group, knowledge=knowledge, report=report)
+    other = build_chat_payload(question="Is there an XSS vulnerability here?", group=group, knowledge=knowledge, report=report)
+    verify_answer, _ = answer_question(provider=None, payload=verify)
+    fix_answer, _ = answer_question(provider=None, payload=fix)
+    other_answer, _ = answer_question(provider=None, payload=other)
+    assert verify_answer.answer != fix_answer.answer
+    assert "PreparedStatement" in fix_answer.answer
+    assert "cannot confirm" in other_answer.answer.lower()
+    assert set(verify_answer.citations) <= set(verify["allowed_citation_ids"])
+
+
 def test_provider_json_parser_accepts_wrapped_and_reasoning_content() -> None:
     assert parse_json_message({"content": "Result:\n```json\n{\"answer\": \"ok\"}\n```"}) == {"answer": "ok"}
     assert parse_json_message({"content": "", "reasoning_content": "prefix {\"answer\": \"ok\"} suffix"}) == {"answer": "ok"}

@@ -7,12 +7,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/css/sentinel.css?v=sast-export-4" />
+    <link rel="stylesheet" href="/static/css/sentinel.css?v=agent-overflow-1" />
     <script>
       document.documentElement.dataset.theme = localStorage.getItem("sentinel-theme") || "light";
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-    <script src="/static/js/app.js?v=sast-export-4" defer></script>
+    <script src="/static/js/app.js?v=agent-overflow-1" defer></script>
   </head>
   <body>
     <div class="sentinel-shell" id="shell">
@@ -49,10 +49,10 @@
             <div class="sentinel-search-results" id="search-results" hidden></div>
           </div>
           <div class="sentinel-topbar__actions">
-            <span class="sentinel-agent-chip">
+            <button class="sentinel-agent-chip" type="button" data-jump="agent">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M9 13v2M15 13v2"/></svg>
               Security Analysis Agent
-            </span>
+            </button>
             <button class="sentinel-icon-btn" type="button" aria-label="Notifications">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
             </button>

@@ -4,11 +4,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import csv
+import io
+import json
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.web import catalog
+from app.web import gateway_lab
+
+ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(ROOT / ".env")
 
 STATIC = Path(__file__).resolve().parent / "static"
 
@@ -55,15 +64,22 @@ def api_agent_chat(payload: dict) -> dict:
 
 @app.get("/api/approval")
 def api_approval() -> dict:
-    rows = catalog.approval_queue()
-    return {
-        "items": rows,
-        "counts": {
-            "Pending": sum(1 for row in rows if row["status"] == "Pending"),
-            "Approved": sum(1 for row in rows if row["status"] == "Approved"),
-            "Rejected": sum(1 for row in rows if row["status"] == "Rejected"),
-        },
-    }
+    return catalog.approval_payload()
+
+
+@app.get("/api/gateway")
+def api_gateway() -> dict:
+    return gateway_lab.gateway_payload()
+
+
+@app.post("/api/gateway/probe")
+def api_gateway_probe(payload: dict) -> dict:
+    return gateway_lab.run_sandbox(payload or {})
+
+
+@app.post("/api/gateway/analyze")
+def api_gateway_analyze(payload: dict) -> dict:
+    return gateway_lab.analyze_sandbox(payload.get("result") or payload or {})
 
 
 @app.post("/api/approval/{request_id}")
@@ -88,6 +104,33 @@ def api_knowledge() -> dict:
 @app.get("/api/search")
 def api_search(q: str = "") -> dict:
     return {"results": catalog.workspace_search(q)}
+
+
+@app.get("/api/export/{kind}")
+def api_export(kind: str, format: str = "json") -> Response:
+    try:
+        bundle = catalog.export_bundle(kind)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Unknown export") from exc
+    filename = f"sentinel-{kind}"
+    if format == "csv":
+        rows = bundle.get("findings") or bundle.get("summary") or [bundle.get("kpis") or {}]
+        output = io.StringIO()
+        fieldnames = list(rows[0].keys()) if rows else ["value"]
+        writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: "" if value is None else value for key, value in row.items() if key in fieldnames})
+        return Response(
+            output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+        )
+    return Response(
+        json.dumps(bundle, ensure_ascii=False, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.json"'},
+    )
 
 
 @app.get("/api/source/{finding_id}")

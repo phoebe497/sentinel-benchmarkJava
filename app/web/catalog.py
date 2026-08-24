@@ -7,6 +7,7 @@ scanner/agent artifacts are loaded, and only for the evaluation panel.
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections import Counter
 from datetime import UTC, datetime
@@ -28,6 +29,8 @@ WEEK1 = ROOT / "artifacts/week-1"
 WEEK3 = ROOT / "artifacts/week-3"
 WEEK5 = ROOT / "artifacts/week-5"
 WEEK6 = ROOT / "artifacts/week-6"
+BENCHMARK_LOCK = ROOT / "scripts/security/benchmark-lock.json"
+BENCHMARK_CORPUS = "BenchmarkJava"
 KB = ROOT / "datasets/knowledge/security-topics.jsonl"
 PREDICTIONS = WEEK1 / "semgrep-20260806/variants/security-audit/predictions.jsonl"
 CI_REPORTS = WEEK3 / "runs/20260807T043217Z-ci-full/reports.jsonl"
@@ -170,8 +173,33 @@ def _sast_reports() -> list[dict[str, Any]]:
     return merged
 
 
+def _preferred_dast_run_id() -> str:
+    """The DAST analysis snapshot the UI and the judge agree on.
+
+    E2E ``*-flow`` reruns are newer by timestamp but they are not the scored
+    analysis run. Prefer the run_id recorded in the LLM-as-judge file.
+    """
+    judged = str(_dast_judge_metrics().get("run_id") or "")
+    if judged and (WEEK6 / "runs" / judged / "reports.jsonl").exists():
+        return judged
+    return ""
+
+
 @lru_cache(maxsize=1)
 def _dast_reports() -> list[dict[str, Any]]:
+    preferred = _preferred_dast_run_id()
+    if preferred:
+        return _read_jsonl(WEEK6 / "runs" / preferred / "reports.jsonl")
+    if not (WEEK6 / "runs").exists():
+        return []
+    for run_dir in sorted((path for path in (WEEK6 / "runs").iterdir() if path.is_dir()), reverse=True):
+        if run_dir.name.endswith("-flow"):
+            continue
+        reports = _read_jsonl(run_dir / "reports.jsonl")
+        if not reports or not reports[0].get("verdict"):
+            continue
+        if (reports[0].get("dataset") or "owasp-benchmark-java") == "juice-shop-dast":
+            return reports
     return _runs_with_verdicts(WEEK6 / "runs", "juice-shop-dast")
 
 
@@ -308,6 +336,7 @@ def _dast_findings() -> list[dict[str, Any]]:
                 "run_id": report.get("run_id") or "",
                 "tool": ", ".join((report.get("sources") or {}).get("source_tools") or ["OWASP ZAP"]),
                 "category": report.get("category") or cwe_name(cwe, report.get("category") or ""),
+                "kb": report.get("retrieval") or [],
             }
         )
     return findings
@@ -366,9 +395,10 @@ def overview() -> dict[str, Any]:
     pending = [row for row in approval_queue() if row["status"] == "Pending"]
     severity = Counter(item["severity_key"] for item in [*sast, *dast])
     total = len(sast) + len(dast)
-    true_vulns = sum(1 for item in sast if item.get("ground_truth") is True) + sum(
-        1 for item in dast if item.get("verdict_key") == "confirmed_vulnerable"
-    )
+    sast_scored = _verdict_metrics()
+    sast_tp = int((sast_scored.get("counts") or {}).get("TP") or 0)
+    dast_confirmed = sum(1 for item in dast if item.get("verdict_key") == "confirmed_vulnerable")
+    true_vulns = sast_tp + dast_confirmed
     executed = sum(1 for row in _read_jsonl(GATEWAY_AUDIT) if row.get("decision") == "proxied")
     analysed = sum(1 for item in [*sast, *dast] if item.get("verdict_key"))
     sast_runs = _sast_runs()
@@ -401,6 +431,7 @@ def overview() -> dict[str, Any]:
     return {
         "total_findings": total,
         "true_vulnerabilities": true_vulns,
+        "true_vulnerability_note": f"{sast_tp} SAST TP · {dast_confirmed} DAST confirmed",
         "pending_approval": len(pending),
         "active_scans": 0,
         "sast_observations": baseline.get("observations", len(sast)),
@@ -456,6 +487,42 @@ def _rel_artifact(path: Path) -> str:
         return path.name
 
 
+def _corpus_commit(manifest: dict[str, Any] | None = None) -> str:
+    """Pinned BenchmarkJava SHA. This repo's git branch is not in the artifacts."""
+    bench = (manifest or {}).get("benchmark") or {}
+    commit = str((bench.get("lock") or {}).get("commit") or bench.get("commit") or "")
+    if not commit:
+        commit = str(_read_json(BENCHMARK_LOCK).get("commit") or "")
+    return commit
+
+
+def _short_sha(commit: str) -> str:
+    return commit[:7] if commit else "—"
+
+
+def _scanner_metrics(folder: Path) -> dict[str, Any]:
+    """Week-1 Semgrep metrics, or the OCR block from the 2026-07-28 comparison run."""
+    metrics = _read_json(folder / "variants/security-audit/metrics.json")
+    if metrics:
+        return metrics
+    results = _read_json(folder / "results.json")
+    ocr = ((results.get("scanners") or {}).get("open_code_review") or {})
+    return ocr or results
+
+
+def _score_line(counts: dict[str, Any]) -> str:
+    parts = [
+        f"TP {int(counts.get('TP') or 0)}",
+        f"FP {int(counts.get('FP') or 0)}",
+        f"TN {int(counts.get('TN') or 0)}",
+        f"FN {int(counts.get('FN') or 0)}",
+    ]
+    abstain = int(counts.get("abstain") or 0)
+    if abstain:
+        parts.append(f"Abstain {abstain}")
+    return " · ".join(parts)
+
+
 def _sast_runs() -> list[dict[str, Any]]:
     """Committed scanner and agent runs for BenchmarkJava. No invented jobs."""
     scored = {
@@ -474,42 +541,40 @@ def _sast_runs() -> list[dict[str, Any]]:
         manifest = _read_json(folder / "manifest.json")
         if not manifest.get("run_id"):
             continue
-        metrics = _read_json(folder / "variants/security-audit/metrics.json")
+        metrics = _scanner_metrics(folder)
         overall = ((metrics.get("metrics") or {}).get("overall") or {}) if metrics else {}
         scanner = manifest.get("scanner") or {}
         primary = ((manifest.get("scanners") or {}).get("primary") or {})
-        commit = str(
-            ((manifest.get("benchmark") or {}).get("lock") or {}).get("commit")
-            or (manifest.get("benchmark") or {}).get("commit")
-            or ""
-        )
+        commit = _corpus_commit(manifest)
         started = str(manifest.get("started_at") or "")
+        findings = (metrics.get("findings") or {}).get("total")
         report = folder / "variants/security-audit/metrics.json"
+        if not report.exists():
+            report = folder / "results.json"
         rows.append(
             {
                 "id": manifest["run_id"],
                 "kind": "scanner",
-                "branch": "main" if commit else "—",
-                "commit": commit[:7] if commit else "—",
+                "branch": BENCHMARK_CORPUS,
+                "commit": _short_sha(commit),
+                "commit_full": commit or "—",
                 "tool": scanner.get("name") or primary.get("name") or "Scanner",
+                "model": "",
                 "ruleset": ruleset,
                 "status": _status_label(manifest.get("status")),
                 "duration": _duration(started, str(manifest.get("ended_at") or "")),
-                "findings": (metrics.get("findings") or {}).get("total") if metrics else None,
-                "agent_results": (
-                    f"TP {overall.get('TP', 0)} · FP {overall.get('FP', 0)} · FN {overall.get('FN', 0)}"
-                    if overall
-                    else "Scanner only"
-                ),
+                "findings": findings,
+                "agent_results": "Scanner only",
                 "started": _when(started),
                 "started_iso": started,
-                "triggered_by": "CI scan",
-                "stage": "Normalize",
-                "raw_findings": (metrics.get("findings") or {}).get("total") if metrics else None,
-                "normalized": (metrics.get("findings") or {}).get("total") if metrics else None,
+                "triggered_by": "Scanner",
+                "stage": "Scan",
+                "raw_findings": findings,
+                "normalized": findings,
                 "agent_analyzed": 0,
                 "precision": round(float(overall["precision"]) * 100, 1) if overall.get("precision") is not None else None,
                 "recall": round(float(overall["recall"]) * 100, 1) if overall.get("recall") is not None else None,
+                "eval_label": "scanner vs ground truth" if overall else "",
                 "progress": 100 if _status_label(manifest.get("status")) == "Completed" else 0,
                 "scan_output": _rel_artifact(folder),
                 "final_report": _rel_artifact(report if report.exists() else folder / "manifest.json"),
@@ -523,45 +588,48 @@ def _sast_runs() -> list[dict[str, Any]]:
         reports = _read_jsonl(manifest_path.parent / "reports.jsonl")
         if reports and (reports[0].get("dataset") or "") == "juice-shop-dast":
             continue
-        verdicts = Counter(_verdict_label(row.get("verdict")) for row in reports)
         scored_row = scored.get(str(manifest["run_id"]), {})
         counts = scored_row.get("counts") or {}
         if counts:
-            agent_results = f"TP {counts.get('TP', 0)} · FP {counts.get('FP', 0)} · Review {counts.get('abstain', 0)}"
+            agent_results = _score_line(counts)
         else:
-            agent_results = (
-                f"TP {verdicts.get('Confirmed Vulnerable', 0) + verdicts.get('Likely Vulnerable', 0)} · "
-                f"FP {verdicts.get('Likely False Positive', 0) + verdicts.get('Not Vulnerable', 0)} · "
-                f"Review {verdicts.get('Insufficient Evidence', 0) + verdicts.get('Needs Review', 0)}"
-            )
+            # Verdict labels are not TP/FP until scoring.py joins ground truth.
+            agent_results = f"{len(reports)} reports · not scored"
         stamps = [str(row.get("created_at") or "") for row in reports if row.get("created_at")]
         started = str(manifest.get("created_at") or (min(stamps) if stamps else ""))
-        summary = manifest_path.parent / "summary.json"
+        summary_path = manifest_path.parent / "summary.json"
+        summary = _read_json(summary_path)
+        requested = int(summary.get("requested") or manifest.get("requested_groups") or len(reports) or 0)
+        analyzed = int(summary.get("successful") or len(reports) or 0)
+        commit = _corpus_commit()
         rows.append(
             {
                 "id": manifest["run_id"],
                 "kind": "agent",
-                "branch": "main",
-                "commit": "—",
-                "tool": manifest.get("model") or "Agent",
+                "branch": BENCHMARK_CORPUS,
+                "commit": _short_sha(commit),
+                "commit_full": commit or "—",
+                "tool": "Semgrep",
+                "model": manifest.get("model") or "",
                 "ruleset": manifest.get("prompt_version") or manifest.get("tag") or "agent",
                 "status": _status_label(manifest.get("status")),
                 "duration": _duration(min(stamps), max(stamps)) if stamps else "—",
-                "findings": manifest.get("requested_groups") or len(reports),
+                "findings": analyzed,
                 "agent_results": agent_results,
                 "started": _when(started),
                 "started_iso": started,
                 "triggered_by": "Agent CLI",
                 "stage": "Agent Analysis",
-                "raw_findings": len(reports),
-                "normalized": len(reports),
-                "agent_analyzed": len(reports),
+                "raw_findings": requested,
+                "normalized": requested,
+                "agent_analyzed": analyzed,
                 "precision": round(float(scored_row["precision"]) * 100, 1) if scored_row.get("precision") is not None else None,
                 "recall": round(float(scored_row["recall"]) * 100, 1) if scored_row.get("recall") is not None else None,
+                "eval_label": "agent vs ground truth" if counts else "",
                 "progress": 100 if _status_label(manifest.get("status")) == "Completed" else 0,
                 "tag": manifest.get("tag") or "",
                 "scan_output": _rel_artifact(manifest_path.parent / "reports.jsonl"),
-                "final_report": _rel_artifact(summary if summary.exists() else manifest_path),
+                "final_report": _rel_artifact(summary_path if summary_path.exists() else manifest_path),
             }
         )
     rows.sort(key=lambda row: str(row.get("started_iso") or ""), reverse=True)
@@ -573,12 +641,19 @@ def sast_payload() -> dict[str, Any]:
     runs = _sast_runs()
     verdicts = Counter(item["verdict"] for item in findings)
     statuses = Counter(row["status"] for row in runs)
+    scored = _verdict_metrics()
+    counts = scored.get("counts") or {}
+    analysed = sum(1 for item in findings if item.get("verdict_key"))
     return {
         "project": "BenchmarkJava",
         "total": len(findings),
         "true_vulnerabilities": sum(1 for item in findings if item.get("ground_truth") is True),
-        "needs_review": verdicts.get("Needs Review", 0) + verdicts.get("Insufficient Evidence", 0),
-        "false_positives": verdicts.get("False Positive", 0) + verdicts.get("Likely False Positive", 0) + verdicts.get("Not Vulnerable", 0),
+        "analysed": analysed,
+        "not_analysed": len(findings) - analysed,
+        "scored": int(scored.get("scored") or 0),
+        "scored_tp": int(counts.get("TP") or 0),
+        "needs_review": len(findings) - analysed + verdicts.get("Insufficient Evidence", 0),
+        "false_positives": int(counts.get("FP") or 0),
         "findings": findings,
         "runs": runs,
         "run_stats": {
@@ -607,6 +682,25 @@ def _when(value: str) -> str:
         return datetime.fromisoformat(raw.replace("Z", "+00:00")).strftime("%b %d, %Y %I:%M %p")
     except ValueError:
         return raw
+
+
+_RUN_STAMP = re.compile(r"^(\d{8}T\d{6}Z)")
+
+
+def _run_started(run_id: str, created_at: str = "") -> tuple[str, str]:
+    """ISO timestamp and a short axis label for a committed run."""
+    raw = str(created_at or "").strip()
+    if raw:
+        try:
+            stamp = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            return stamp.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), stamp.strftime("%b %d %H:%M")
+        except ValueError:
+            pass
+    match = _RUN_STAMP.match(str(run_id or ""))
+    if match:
+        stamp = datetime.strptime(match.group(1), "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+        return stamp.strftime("%Y-%m-%dT%H:%M:%SZ"), stamp.strftime("%b %d %H:%M")
+    return "", str(run_id or "")[:8]
 
 
 def _dast_endpoints() -> list[dict[str, Any]]:
@@ -740,8 +834,10 @@ def dast_payload() -> dict[str, Any]:
             "needs_review": sum(1 for item in findings if item["verdict"] in {"Needs Review", "Insufficient Evidence"}),
         },
         "findings_count": len(findings),
+        "run_id": (findings[0].get("run_id") if findings else "") or _preferred_dast_run_id(),
         "verified_count": sum(1 for item in findings if item.get("verified")),
         "revised_count": sum(1 for item in findings if item.get("verdict_changed")),
+        "probed_endpoints": len({item.get("endpoint") for item in findings if item.get("verified")}),
         "started": output.get("generated_at", ""),
         "probes": {
             "total": len(queue),
@@ -787,6 +883,7 @@ def agent_payload(finding_id: str | None = None) -> dict[str, Any]:
         remediation = [remediation]
     if featured.get("kind") == "DAST" and featured.get("recommendation"):
         remediation = [featured["recommendation"], *remediation]
+    live = _live_chat_provider()
     return {
         "finding": featured,
         "knowledge": [
@@ -813,6 +910,8 @@ def agent_payload(finding_id: str | None = None) -> dict[str, Any]:
             "Require human approval before any mutating request.",
         ],
         "suggested_questions": _suggested_questions(featured),
+        "chat_mode": "live" if _live_chat_provider() else "offline",
+        "chat_model": getattr(_live_chat_provider(), "model", "") or "deterministic-grounded-chat-v1",
     }
 
 
@@ -926,6 +1025,34 @@ def _knowledge_for_finding(finding: dict[str, Any]) -> list[dict[str, Any]]:
     return matched[:4]
 
 
+def _live_chat_provider():
+    """OpenCode zen for Ask Sentinel when an API key is configured.
+
+    Pytest never calls the live gateway. The analysis agent still uses
+    CUSTOM_SCAN_MODEL; chat uses CHAT_MODEL and defaults to glm-5.2.
+    """
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return None
+    api_key = str(os.getenv("OPENCODE_API_KEY") or "").strip()
+    if not api_key or api_key == "your-api-key":
+        return None
+    from sentinel_benchmark.analysis.providers import NineRouterProvider
+
+    model = str(os.getenv("CHAT_MODEL") or "glm-5.2").strip()
+    try:
+        inner = NineRouterProvider(
+            base_url=os.getenv("OPENCODE_BASE_URL", "https://opencode.ai/zen/go/v1"),
+            model=model,
+            api_key=api_key,
+            timeout=float(os.getenv("OPENCODE_TIMEOUT_SECONDS") or os.getenv("NINE_ROUTER_TIMEOUT_SECONDS") or "60"),
+            max_retries=int(os.getenv("OPENCODE_MAX_RETRIES") or os.getenv("NINE_ROUTER_MAX_RETRIES") or "1"),
+        )
+    except ValueError:
+        return None
+    inner.name = "opencode"
+    return inner
+
+
 def answer_finding(finding_id: str, question: str) -> dict[str, Any]:
     """Grounded Q&A for one finding. Readonly UI uses the baked-artifact path."""
     question = redact((question or "").strip())
@@ -954,10 +1081,14 @@ def answer_finding(finding_id: str, question: str) -> dict[str, Any]:
         "limitations": finding.get("limitations") or [],
     }
     chat_payload = build_chat_payload(question=question, group=group, knowledge=knowledge, report=report)
-    answer, metadata = answer_question(provider=None, payload=chat_payload)
+    # Injected text is still answered, but never forwarded to a live model.
+    provider = None if injection.flagged else _live_chat_provider()
+    answer, metadata = answer_question(provider=provider, payload=chat_payload, fallback_on_error=True)
     limitations = list(answer.limitations)
     if injection.flagged:
         limitations.append("The question contained a known injection pattern and was treated as untrusted data, not as instructions.")
+    raw_provider = str(metadata.get("provider") or "offline_artifact")
+    provider_label = "opencode" if raw_provider in {"nine_router", "opencode"} else raw_provider
     return redact_obj(
         {
             "finding_id": finding["id"],
@@ -967,45 +1098,96 @@ def answer_finding(finding_id: str, question: str) -> dict[str, Any]:
             "remediation": answer.remediation,
             "limitations": limitations,
             "injection_flagged": injection.flagged,
-            "provider": metadata.get("provider") or "offline_artifact",
-            "model": metadata.get("model") or "deterministic-grounded-chat-v1",
+            "provider": provider_label,
+            "model": metadata.get("model") or (getattr(provider, "model", None) if provider else "deterministic-grounded-chat-v1"),
         }
     )
 
 
-def _recorded_requests() -> list[dict[str, Any]]:
-    """The real approval decisions, read from the probe records of the last run.
+def _request_from_probe(probe: dict[str, Any], request_id: str) -> dict[str, Any]:
+    decision = str(probe.get("decision") or "")
+    status = {"approve": "Approved", "reject": "Rejected"}.get(decision, "Blocked")
+    path = _path_of(str(probe.get("endpoint") or probe.get("route_id") or ""))
+    finding_id = _finding_id_for_path(path)
+    stamp = str(probe.get("timestamp") or "")
+    http_status = probe.get("status")
+    sent = bool(probe.get("sent"))
+    if sent:
+        gateway = "Executed"
+    elif status == "Approved":
+        gateway = "Queued"
+    else:
+        gateway = "Not Executed"
+    return {
+        "id": request_id,
+        "finding_id": finding_id,
+        "method": probe.get("method") or "GET",
+        "endpoint": probe.get("endpoint") or probe.get("route_id") or "",
+        "route_id": probe.get("route_id") or "",
+        "path": path,
+        "payload": probe.get("payload_id"),
+        "purpose": probe.get("purpose") or "",
+        "risk": "High" if probe.get("special_payload") else ("Medium" if path.startswith("/ftp") else "Low"),
+        "impact": "Mutating" if str(probe.get("method")).upper() != "GET" else "Read Only",
+        "status": status,
+        "sent": sent,
+        "http_status": http_status,
+        "result": _http_label(http_status) if sent else ("Not Executed" if status != "Approved" else "Queued"),
+        "gateway": gateway,
+        "approved_by": "Operator" if status == "Approved" else "",
+        "rejected_by": "User" if status == "Rejected" else ("Policy" if status == "Blocked" else ""),
+        "rejected_source": "User" if status == "Rejected" else ("Policy" if status == "Blocked" else ""),
+        "decided_at": _when(stamp),
+        "timestamp": stamp,
+        "injection_flagged": bool(probe.get("injection_flagged")),
+        "injection_flag": "Flagged" if probe.get("injection_flagged") else "Clean",
+        "redaction_applied": "Yes" if probe.get("redaction_hits") else "No",
+        "latency_ms": probe.get("elapsed_ms"),
+        "headers": probe.get("headers") or {},
+        "body": (probe.get("body") or "")[:4000],
+        "reason": probe.get("reason") or "",
+        "covers": len(probe.get("analysis_group_ids") or []),
+        "live": True,
+        "source": probe.get("source") or "committed-run",
+    }
 
-    This page reviews decisions; it does not make them. The live gate is the
-    CLI (`scripts/probe.py run`), because approving a request only means
-    something where the request can actually be sent, and this UI has no route
-    to the gateway.
-    """
+
+def _live_probe_path() -> Path:
+    return Path(os.getenv("SENTINEL_UI_LIVE_LOG") or WEEK6 / "probes" / "ui-live-probe.jsonl")
+
+
+def _live_requests() -> list[dict[str, Any]]:
+    rows = []
+    for index, probe in enumerate(_read_jsonl(_live_probe_path()), start=1):
+        rows.append(_request_from_probe(probe, f"REQ-LIVE-{index:03d}"))
+    rows.reverse()
+    return rows
+
+
+def _recorded_requests() -> list[dict[str, Any]]:
+    """The committed probe run, plus any playground attempts written by the UI."""
     rows = []
     for index, probe in enumerate(_probe_records(), start=1):
-        decision = str(probe.get("decision") or "")
-        status = {"approve": "Approved", "reject": "Rejected"}.get(decision, "Blocked")
-        rows.append(
-            {
-                "id": f"REQ-{index:03d}",
-                "method": probe.get("method") or "GET",
-                "endpoint": probe.get("endpoint") or probe.get("route_id") or "",
-                "route_id": probe.get("route_id") or "",
-                "payload": probe.get("payload_id"),
-                "purpose": probe.get("purpose") or "",
-                "risk": "High" if probe.get("special_payload") else "Low",
-                "impact": "Mutating" if str(probe.get("method")).upper() != "GET" else "Read Only",
-                "status": status,
-                "sent": bool(probe.get("sent")),
-                "http_status": probe.get("status"),
-                "injection_flagged": bool(probe.get("injection_flagged")),
-                "redaction_hits": probe.get("redaction_hits") or {},
-                "reason": probe.get("reason") or "",
-                "covers": len(probe.get("analysis_group_ids") or []),
-                "live": True,
-            }
-        )
+        rows.append(_request_from_probe(probe, f"REQ-{index:03d}"))
     return rows
+
+
+def _finding_id_for_path(path: str) -> str:
+    for finding in _dast_findings():
+        if _path_of(str(finding.get("endpoint") or "")) == path:
+            return str(finding["id"])
+    return "—"
+
+
+def _http_label(status: Any) -> str:
+    if status in (None, ""):
+        return "—"
+    code = int(status)
+    if code == 200:
+        return "200 OK"
+    if code == 401:
+        return "401 Expected"
+    return str(code)
 
 
 def _seed_requests() -> list[dict[str, Any]]:
@@ -1079,7 +1261,125 @@ def _seed_requests() -> list[dict[str, Any]]:
 
 
 def approval_queue() -> list[dict[str, Any]]:
-    return [redact_obj(row) for row in _seed_requests()]
+    recorded = _seed_requests()
+    return [redact_obj(row) for row in [*_live_requests(), *recorded]]
+
+
+def _approval_history(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    index = 0
+    for item in items:
+        stamp = item.get("timestamp") or item.get("decided_at") or ""
+        common = {
+            "request_id": item.get("id"),
+            "finding_id": item.get("finding_id") or "—",
+            "route_id": item.get("route_id") or "",
+            "timestamp": stamp,
+            "when": item.get("decided_at") or _when(str(stamp)),
+            "approval": item.get("status"),
+            "http_status": item.get("http_status"),
+            "latency": f"{item['latency_ms']} ms" if item.get("latency_ms") not in (None, "") else "—",
+            "lifecycle": _lifecycle(item),
+        }
+        if item.get("status") in {"Approved", "Rejected"}:
+            index += 1
+            events.append(
+                {
+                    **common,
+                    "id": f"EVT-{index:03d}",
+                    "event": item["status"],
+                    "actor": item.get("approved_by") or item.get("rejected_by") or "Operator",
+                    "filter": "—",
+                    "gateway": "api-gateway-lab",
+                }
+            )
+        if item.get("sent"):
+            index += 1
+            events.append(
+                {
+                    **common,
+                    "id": f"EVT-{index:03d}",
+                    "event": "Probe Executed",
+                    "actor": "Gateway Service",
+                    "filter": "Output Redaction" if item.get("redaction_hits") or item.get("redaction_applied") == "Yes" else "—",
+                    "gateway": "api-gateway-lab",
+                }
+            )
+        if item.get("injection_flagged"):
+            index += 1
+            events.append(
+                {
+                    **common,
+                    "id": f"EVT-{index:03d}",
+                    "event": "Prompt Injection",
+                    "actor": "Policy Engine",
+                    "filter": "Prompt Injection",
+                    "gateway": "api-gateway-lab",
+                }
+            )
+        elif item.get("redaction_hits") or item.get("redaction_applied") == "Yes":
+            index += 1
+            events.append(
+                {
+                    **common,
+                    "id": f"EVT-{index:03d}",
+                    "event": "Response Redacted",
+                    "actor": "Policy Engine",
+                    "filter": "PII Masking",
+                    "gateway": "api-gateway-lab",
+                }
+            )
+    events.sort(key=lambda row: str(row.get("timestamp") or ""), reverse=True)
+    return [redact_obj(row) for row in events]
+
+
+def _lifecycle(item: dict[str, Any]) -> list[dict[str, str]]:
+    rejected = item.get("status") in {"Rejected", "Blocked"}
+    sent = bool(item.get("sent"))
+    filtered = bool(item.get("injection_flagged") or item.get("redaction_hits") or item.get("redaction_applied") == "Yes")
+    steps = [
+        {"id": "proposed", "label": "Proposed", "state": "done"},
+        {"id": "policy", "label": "Policy Passed", "state": "done" if not rejected else "done"},
+        {"id": "approved", "label": "Approved" if not rejected else "Rejected", "state": "done"},
+        {"id": "executed", "label": "Executed", "state": "done" if sent else ("current" if not rejected else "pending")},
+        {"id": "filtered", "label": "Response Filtered", "state": "done" if filtered else ("current" if sent else "pending")},
+    ]
+    return steps
+
+
+def approval_payload() -> dict[str, Any]:
+    items = approval_queue()
+    history = _approval_history(items)
+    approved = [row for row in items if row.get("status") == "Approved"]
+    rejected = [row for row in items if row.get("status") == "Rejected"]
+    executed = [row for row in approved if row.get("sent")]
+    queued = [row for row in approved if not row.get("sent")]
+    success = sum(1 for row in executed if row.get("http_status") == 200)
+    filters = sum(1 for row in history if row.get("event") in {"Response Redacted", "Prompt Injection"})
+    return {
+        "items": items,
+        "history": history,
+        "counts": {
+            "Pending": sum(1 for row in items if row["status"] == "Pending"),
+            "Approved": len(approved),
+            "Rejected": len(rejected),
+            "History": len(history),
+        },
+        "stats": {
+            "approved": len(approved),
+            "executed": len(executed),
+            "queued": len(queued),
+            "success_rate": round((success / len(executed)) * 100, 1) if executed else 0,
+            "rejected": len(rejected),
+            "rejected_user": sum(1 for row in rejected if row.get("rejected_source") == "User"),
+            "rejected_policy": sum(1 for row in rejected if row.get("rejected_source") == "Policy"),
+            "never_executed": sum(1 for row in rejected if not row.get("sent")),
+            "audit_events": len(history),
+            "approval_actions": len(approved) + len(rejected),
+            "gateway_executions": len(executed),
+            "security_filters": filters,
+        },
+    }
 
 
 def decide_request(request_id: str, approved: bool) -> dict[str, Any]:
@@ -1118,6 +1418,14 @@ def _scored_sast_runs() -> list[dict[str, Any]]:
     scored = [row for row in scored if row.get("run_id") and row.get("scored")]
     scored.sort(key=lambda row: str(row["run_id"]), reverse=True)
     return scored
+
+
+def _dast_judge_metrics() -> dict[str, Any]:
+    """Newest LLM-as-judge scoring file for DAST, or empty when none is committed."""
+    scored = [_read_json(path) for path in (WEEK6 / "evaluation").glob("verdict-metrics-*-judge.json")]
+    scored = [row for row in scored if row.get("method") == "llm_as_judge" and row.get("run_id")]
+    scored.sort(key=lambda row: str(row["run_id"]), reverse=True)
+    return scored[0] if scored else {}
 
 
 @lru_cache(maxsize=1)
@@ -1186,95 +1494,332 @@ def _remediation_rows(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def reports_payload() -> dict[str, Any]:
     """Accuracy of the *agent's verdicts*, never of the scanner's alerts.
 
-    An earlier version derived DAST true positives from alert severity. That
-    was a fabrication: severity is how bad an issue would be, not whether it is
-    real. A finding is a true positive only where a verdict was compared with
-    ground truth, so DAST — which has none — reports coverage instead.
+    SAST uses BenchmarkJava ground truth joined after the run. DAST has no
+    corpus labels; Precision/Recall come from an LLM-as-judge file written the
+    same way — after the reports exist — and are labelled as a proxy, not as
+    Juice Shop ground truth.
     """
     sast = _sast_findings()
     dast = _dast_findings()
-    scored = _verdict_metrics()
+    history = _scored_sast_runs()
+    scored = history[0] if history else {}
+    previous = history[1] if len(history) > 1 else None
+    kpis = _kpi_block(scored) if scored else {
+        "precision": 0, "recall": 0, "f1": None, "true_positives": 0, "false_positives": 0,
+        "false_negatives": 0, "true_negatives": 0, "abstained": 0, "scored": 0, "run_id": "", "tag": "",
+    }
+    prior = _kpi_block(previous) if previous else None
     counts = scored.get("counts") or {}
     tp, fp, fn, tn = (int(counts.get(key, 0)) for key in ("TP", "FP", "FN", "TN"))
     abstain = int(counts.get("abstain", 0))
     precision, recall, f1 = scored.get("precision"), scored.get("recall"), scored.get("f1")
     scanner = list(_predictions().values())
-    verified = sum(1 for item in dast if item.get("verified"))
+    dast_verdicts = Counter(item.get("verdict_key") for item in dast)
+    probed = sum(1 for item in dast if item.get("verified"))
+    probed_endpoints = len({item.get("endpoint") for item in dast if item.get("verified")})
+    confirmed_dast = int(dast_verdicts.get("confirmed_vulnerable") or 0)
+    revised = sum(1 for item in dast if item.get("verdict_changed"))
+    judge = _dast_judge_metrics()
+    judge_counts = judge.get("counts") or {}
+    sast_groups = len(sast)
+    dast_groups = len(dast)
+    kpis["deltas"] = {
+        "precision": _delta(kpis["precision"], prior["precision"] if prior else None),
+        "recall": _delta(kpis["recall"], prior["recall"] if prior else None),
+        "true_positives": _delta(kpis["true_positives"], prior["true_positives"] if prior else None),
+        "false_positives": _delta(kpis["false_positives"], prior["false_positives"] if prior else None, lower_is_better=True),
+        "false_negatives": _delta(kpis["false_negatives"], prior["false_negatives"] if prior else None, lower_is_better=True),
+    }
+    trend = []
+    for row in history:
+        block = _kpi_block(row)
+        run_id = str(row.get("run_id") or "")
+        manifest = _read_json(WEEK3 / "runs" / run_id / "manifest.json")
+        started, label = _run_started(run_id, str(manifest.get("created_at") or ""))
+        trend.append(
+            {
+                "label": f"{label} SAST",
+                "started": started,
+                "run_id": run_id,
+                "kind": "SAST",
+                "findings": int(row.get("reports") or block["scored"]),
+                "true_vulnerabilities": block["true_positives"],
+            }
+        )
+    dast_run = str(judge.get("run_id") or (dast[0].get("run_id") if dast else ""))
+    dast_manifest = _read_json(WEEK6 / "runs" / dast_run / "manifest.json") if dast_run else {}
+    zap_at = str((_read_json(ZAP_MANIFEST).get("output") or {}).get("generated_at") or "")
+    dast_started, dast_label = _run_started(dast_run, str(dast_manifest.get("created_at") or zap_at))
+    if dast_groups:
+        trend.append(
+            {
+                "label": f"{dast_label} DAST",
+                "started": dast_started,
+                "run_id": dast_run or str((_read_json(ZAP_MANIFEST).get("run_id") or "")),
+                "kind": "DAST",
+                "findings": dast_groups,
+                "true_vulnerabilities": confirmed_dast,
+            }
+        )
+    trend.sort(key=lambda row: str(row.get("started") or row.get("run_id") or ""))
     return {
-        "kpis": {
-            "precision": round((precision or 0) * 100, 1),
-            "recall": round((recall or 0) * 100, 1),
-            "true_positives": tp,
-            "false_positives": fp,
-            "false_negatives": fn,
-            "abstained": abstain,
-            "scored": int(scored.get("scored", 0)),
-        },
-        "sast_vs_dast": {"sast": tp, "dast": verified},
+        "kpis": kpis,
+        "sast_vs_dast": {"sast": tp, "dast": confirmed_dast, "dast_probed": probed},
         "verdict_distribution": scored.get("verdict_distribution") or {},
+        "trend": trend,
+        "remediation": _remediation_rows([*sast, *dast]),
         "severity_open": [
             {"severity": label.title(), "open": sum(1 for item in [*sast, *dast] if item["severity_key"] == label)}
             for label in ("critical", "high", "medium", "low", "info")
         ],
         "summary": [
             {
-                "category": "SAST (verdicts vs ground truth)",
+                "category": "SAST",
+                "findings": sast_groups,
+                "scored": int(kpis.get("scored") or 0),
                 "precision": precision, "recall": recall, "f1": f1,
                 "tp": tp, "fp": fp, "fn": fn, "tn": tn, "abstain": abstain,
+                "probed": None,
+                "revised": None,
+                "label_source": "benchmarkjava_ground_truth",
+                "run_id": kpis.get("run_id") or "",
             },
             {
-                # No ground truth for a running app, so no confusion matrix.
-                # What is measurable is how many verdicts a live response checked.
-                "category": "DAST (verdicts verified by a live response)",
-                "precision": None, "recall": None, "f1": None,
-                "tp": None, "fp": None, "fn": None, "tn": None,
-                "verified": verified, "findings": len(dast),
-                "changed_by_probe": sum(1 for item in dast if item.get("verdict_changed")),
-            },
-            {
-                "category": "Scanner alone (Semgrep vs ground truth, Week 1)",
-                "precision": None, "recall": None, "f1": None,
-                "tp": sum(1 for row in scanner if row.get("outcome") == "TP"),
-                "fp": sum(1 for row in scanner if row.get("outcome") == "FP"),
-                "fn": sum(1 for row in scanner if row.get("outcome") == "FN"),
-                "tn": sum(1 for row in scanner if row.get("outcome") == "TN"),
+                "category": "DAST",
+                "findings": dast_groups,
+                "scored": judge.get("scored"),
+                "precision": judge.get("precision"),
+                "recall": judge.get("recall"),
+                "f1": judge.get("f1"),
+                "tp": judge_counts.get("TP"),
+                "fp": judge_counts.get("FP"),
+                "fn": judge_counts.get("FN"),
+                "tn": judge_counts.get("TN"),
+                "abstain": judge_counts.get("abstain"),
+                "label_source": "llm_as_judge" if judge else None,
+                "judge_model": judge.get("judge_model") or "grok-4.5",
+                "confirmed": confirmed_dast,
+                "probed": probed,
+                "probed_endpoints": probed_endpoints,
+                "verified": probed,
+                "revised": revised,
+                "changed_by_probe": revised,
+                "likely_vulnerable": int(dast_verdicts.get("likely_vulnerable") or 0),
+                "not_vulnerable": int(dast_verdicts.get("not_vulnerable") or 0),
+                "likely_false_positive": int(dast_verdicts.get("likely_false_positive") or 0),
+                "insufficient_evidence": int(dast_verdicts.get("insufficient_evidence") or 0),
+                "run_id": judge.get("run_id") or (dast[0].get("run_id") if dast else ""),
             },
         ],
+        "glossary": [
+            {
+                "column": "Findings",
+                "meaning": "Analysis groups from the committed scans: 99 BenchmarkJava groups and 18 Juice Shop groups.",
+            },
+            {
+                "column": "Precision / Recall / F1 / TP / FP / FN",
+                "meaning": "SAST: agent vs BenchmarkJava ground truth on the newest scored run. DAST: agent vs Grok 4.5 judge. There is no combined row: the two rulers must not be added together.",
+            },
+            {
+                "column": "Probed",
+                "meaning": "DAST only. A live HTTP response reached this finding's endpoint through the Gateway. One request can cover several findings on the same path. This is not a true positive.",
+            },
+            {
+                "column": "Verdict changed",
+                "meaning": "DAST only. The agent updated its verdict after reading that live response. The previous verdict stays in verification.verdict_before.",
+            },
+        ],
+        "scanner": {
+            "category": "Scanner alone (Semgrep vs ground truth, Week 1)",
+            "tp": sum(1 for row in scanner if row.get("outcome") == "TP"),
+            "fp": sum(1 for row in scanner if row.get("outcome") == "FP"),
+            "fn": sum(1 for row in scanner if row.get("outcome") == "FN"),
+            "tn": sum(1 for row in scanner if row.get("outcome") == "TN"),
+        },
+        "ranges": ["All committed runs", "Latest scored run"],
         "sources": [
             str((WEEK3 / "evaluation").relative_to(ROOT).as_posix()) + "/verdict-metrics-*.json",
             "artifacts/week-1/semgrep-20260806/variants/security-audit/predictions.jsonl",
+            "artifacts/week-6/evaluation/verdict-metrics-dast-kb2-judge.json",
         ],
     }
 
 
+def export_bundle(kind: str) -> dict[str, Any]:
+    key = (kind or "").strip().lower()
+    if key == "reports":
+        return reports_payload()
+    if key == "sast":
+        return {
+            "project": "BenchmarkJava",
+            "findings": [
+                {field: row.get(field) for field in ("id", "cwe", "rule", "severity", "file", "verdict", "confidence", "run_id")}
+                for row in _sast_findings()
+            ],
+        }
+    if key == "dast":
+        return {
+            "target": "OWASP Juice Shop",
+            "findings": [
+                {field: row.get(field) for field in ("id", "cwe", "endpoint", "method", "severity", "verdict", "confidence", "verified")}
+                for row in _dast_findings()
+            ],
+        }
+    raise KeyError(kind)
+
+
+def _text_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    return []
+
+
+def _surface_label(value: str) -> str:
+    return {
+        "sast_source": "SAST source",
+        "dast_response_header": "DAST response header",
+        "dast_response_body": "DAST response body",
+        "scanner_tool": "Scanner tool",
+    }.get(value, value or "—")
+
+
+def _kb_cited_in(text: str, doc_id: str) -> bool:
+    return bool(doc_id) and doc_id in (text or "")
+
+
+def _report_for_test(run_id: str, test_id: str) -> dict[str, Any]:
+    for row in _read_jsonl(WEEK3 / "runs" / run_id / "reports.jsonl"):
+        if row.get("benchmark_test_id") == test_id:
+            return row
+    return {}
+
+
+def _latest_report_citing(test_id: str, doc_id: str) -> tuple[str, dict[str, Any]]:
+    if not (WEEK3 / "runs").exists():
+        return "", {}
+    for run_dir in sorted((path for path in (WEEK3 / "runs").iterdir() if path.is_dir()), reverse=True):
+        row = _report_for_test(run_dir.name, test_id)
+        if row and _kb_cited_in(str(row.get("verdict_rationale") or ""), doc_id):
+            return run_dir.name, row
+    return "", {}
+
+
+def _kb_replay_slice(run_id: str, report: dict[str, Any], doc_id: str) -> dict[str, Any]:
+    rationale = str(report.get("verdict_rationale") or "")
+    return {
+        "run_id": run_id,
+        "verdict": report.get("verdict") or "",
+        "verdict_label": _verdict_label(report.get("verdict")),
+        "cited": _kb_cited_in(rationale, doc_id),
+        "rationale": rationale,
+    }
+
+
+def _kb_measured_change(doc_id: str) -> dict[str, Any] | None:
+    """Before/after from committed Week 3 runs. Skip if either report is missing."""
+    pairs = {
+        "KB-003": ("BenchmarkTest00011", "20260822T084310Z-sast-source", "20260822T084821Z-sast-kb-fix"),
+        "KB-328-HASH": ("BenchmarkTest00009", "20260822T084310Z-sast-source", "20260822T093256Z-sast-v4"),
+    }
+    spec = pairs.get(doc_id)
+    if not spec:
+        return None
+    test_id, before_run, after_run = spec
+    before = _report_for_test(before_run, test_id)
+    after_id, after = after_run, _report_for_test(after_run, test_id)
+    if not after:
+        after_id, after = _latest_report_citing(test_id, doc_id)
+    if not before or not after:
+        return None
+    return {
+        "subject_id": test_id,
+        "before": _kb_replay_slice(before_run, before, doc_id),
+        "after": _kb_replay_slice(after_id, after, doc_id),
+    }
+
+
+def _kb_usage() -> dict[str, list[dict[str, Any]]]:
+    usage: dict[str, list[dict[str, Any]]] = {}
+    known_ids = [str(doc.get("id") or "") for doc in _knowledge_docs() if doc.get("id")]
+    for finding in [*_sast_findings(), *_dast_findings()]:
+        retrieved = []
+        for row in finding.get("kb") or []:
+            doc_id = str(row.get("document_id") or row.get("id") or "")
+            if doc_id:
+                retrieved.append(doc_id)
+        rationale = str(finding.get("verdict_rationale") or "")
+        linked = set(retrieved)
+        for doc_id in known_ids:
+            if _kb_cited_in(rationale, doc_id):
+                linked.add(doc_id)
+        for doc_id in linked:
+            usage.setdefault(doc_id, []).append(
+                {
+                    "finding_id": finding["id"],
+                    "kind": finding["kind"],
+                    "subject": finding.get("test_id") or finding.get("endpoint") or finding["id"],
+                    "cwe": finding.get("cwe") or "",
+                    "verdict": finding.get("verdict") or "",
+                    "retrieved": doc_id in retrieved,
+                    "cited": _kb_cited_in(rationale, doc_id),
+                    "rationale": rationale,
+                    "page": "sast" if finding["kind"] == "SAST" else "dast",
+                }
+            )
+    return usage
+
+
 def knowledge_payload() -> dict[str, Any]:
     docs = _knowledge_docs()
-    cwes = set()
+    usage = _kb_usage()
+    cwes: set[str] = set()
+    owasp_ids: set[str] = set()
     for doc in docs:
+        for item in doc.get("cwe") or []:
+            raw = str(item).upper()
+            if raw.startswith("CWE-"):
+                cwes.add(raw)
         for tag in doc.get("tags") or []:
-            if str(tag).lower().startswith("cwe-"):
-                cwes.add(str(tag).upper())
+            raw = str(tag)
+            if raw.lower().startswith("cwe-"):
+                cwes.add(raw.upper())
+            if raw.lower().startswith("a0"):
+                owasp_ids.add(raw.split(":")[0].split("-")[0].upper())
     rows = []
     for doc in docs:
         tags = [str(tag) for tag in (doc.get("tags") or [])]
-        cwe = next((tag.upper() if tag.lower().startswith("cwe-") else tag for tag in tags if "cwe" in tag.lower()), "—")
-        owasp = next((tag.upper() if tag.lower().startswith("a0") else tag for tag in tags if tag.lower().startswith("a0")), doc.get("source") or "")
+        cwe_ids = [str(item).upper() for item in (doc.get("cwe") or []) if str(item).strip()]
+        if not cwe_ids:
+            tagged = next((tag.upper() for tag in tags if tag.lower().startswith("cwe-")), "")
+            if tagged:
+                cwe_ids = [tagged]
+        owasp_label = next((tag.upper() if tag.lower().startswith("a0") else tag for tag in tags if tag.lower().startswith("a0")), doc.get("source") or "")
+        linked = usage.get(doc["id"], [])
         rows.append(
             {
                 "id": doc["id"],
-                "cwe": cwe.upper() if str(cwe).startswith("cwe") or str(cwe).startswith("CWE") else cwe,
-                "owasp": owasp,
+                "cwe": ", ".join(cwe_ids) or "—",
+                "owasp": owasp_label,
                 "title": doc.get("title") or "",
                 "category": doc.get("category") or "",
-                "required_evidence": "Scanner excerpt + location",
-                "fp_indicators": "Missing sink or sanitized API",
-                "safe_verification": "Read-only review of committed artifacts",
-                "remediation": (doc.get("content") or "")[:140],
+                "detection_surface": doc.get("detection_surface") or "",
+                "detection_surface_label": _surface_label(str(doc.get("detection_surface") or "")),
+                "confirm_indicators": _text_list(doc.get("confirm_indicators")),
+                "fp_indicators": _text_list(doc.get("fp_indicators")),
+                "detection_questions": _text_list(doc.get("detection_questions")),
                 "content": doc.get("content") or "",
                 "source": doc.get("source") or "",
                 "source_url": doc.get("source_url") or "",
+                "provenance": doc.get("provenance") or {},
+                "retrieved_count": sum(1 for row in linked if row["retrieved"]),
+                "cited_count": sum(1 for row in linked if row["cited"]),
+                "used_by": linked,
+                "measured_change": _kb_measured_change(doc["id"]),
             }
         )
+    rows.sort(key=lambda row: (row["measured_change"] is None, -(row["cited_count"] or 0), row["id"]))
     audit = []
     for row in _read_jsonl(GATEWAY_AUDIT):
         audit.append(
@@ -1305,11 +1850,15 @@ def knowledge_payload() -> dict[str, Any]:
                 "status": 200 if row.get("decision") == "approve" else 0,
             }
         )
+    stamp = ""
+    if KB.exists():
+        stamp = datetime.fromtimestamp(KB.stat().st_mtime, UTC).isoformat()
     return {
         "entries": len(docs),
         "cwe_coverage": len(cwes),
-        "owasp_categories": 10,
-        "updated": "Aug 22, 2026 04:32 AM",
+        "owasp_categories": len(owasp_ids),
+        "cited_docs": sum(1 for row in rows if row["cited_count"]),
+        "updated": _when(stamp) or "—",
         "documents": rows,
         "audit": audit,
     }

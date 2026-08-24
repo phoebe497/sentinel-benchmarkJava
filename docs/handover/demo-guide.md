@@ -3,8 +3,9 @@
 Tài liệu này giúp **chạy được** toàn bộ chuỗi trên máy local. Cài đặt: [install.md](install.md).
 
 Hai nguồn, một agent: Semgrep đọc BenchmarkJava (SAST, có ground truth, không
-deploy); ZAP đọc Juice Shop (DAST, có endpoint sống). Bước duyệt → Gateway →
-lọc response → cập nhật report **chỉ chạy trên DAST**.
+deploy); ZAP đọc Juice Shop (DAST, có endpoint sống, Precision/Recall là
+LLM-as-judge Grok 4.5). Bước duyệt → Gateway → lọc response → cập nhật report
+**chỉ chạy trên DAST**.
 
 ## 0. Cổng và mạng
 

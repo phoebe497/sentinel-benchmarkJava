@@ -9,7 +9,7 @@ chính và lý do của chúng nằm ở [architecture.md §6](architecture.md#6
 | :--- | :--- |
 | Corpus là **100 case đầu** của BenchmarkJava | Mọi so sánh trong tài liệu lệch nhau 1-3 case trên n=25 nhóm. Ở cỡ mẫu đó không kết luận được prompt nào tốt hơn, chỉ kết luận được nguyên nhân nào còn tồn tại. |
 | BenchmarkJava là corpus **tổng hợp** | Mỗi file là một sink duy nhất, ngắn, không có business logic. Precision ở đây không suy ra được precision trên codebase thật. |
-| DAST **không có ground truth** | Không corpus nào nói đúng/sai cho một endpoint Juice Shop. Thay vì bịa confusion matrix, hệ thống đo *bao nhiêu verdict đã được một response thật trả lời*, và dùng eval set tự viết cho phần chất lượng. |
+| DAST **không có corpus ground truth** | Không corpus nào nói đúng/sai cho một endpoint Juice Shop. Precision/Recall trên UI là **LLM-as-judge (Grok 4.5)** — proxy, n=4 case có nhãn — cộng với coverage (verified/revised) và eval set tự viết. Judge abstain thì đếm `no_ground_truth`, không bịa ô matrix. |
 | Eval set chỉ **10 case** | Nó được thiết kế để **chẩn đoán**, không để xếp hạng. Một case đổi kết quả là 10% - đừng đọc con số của nó như một benchmark. |
 
 ## 2. Giới hạn về năng lực phát hiện

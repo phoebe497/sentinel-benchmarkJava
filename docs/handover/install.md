@@ -43,10 +43,12 @@ python scripts/analyze.py baseline                                    # invarian
 python scripts/analyze.py run --provider fake --limit 5 --tag smoke   # pipeline, không tốn LLM
 python scripts/analyze.py run --provider nine_router --limit 25 --tag sast-run
 python scripts/analyze.py score --tag sast-run                        # join ground truth SAU khi chạy
+python scripts/analyze.py judge-dast --tag dast-kb2                   # join nhãn Grok 4.5 SAU khi chạy
 ```
 
-`score` là bước duy nhất được đọc ground truth, và nó chỉ đọc report đã nằm trên
-đĩa. Không có đường nào để đáp án đi vào prompt.
+`score` là bước duy nhất được đọc ground truth BenchmarkJava; `judge-dast` là
+bước duy nhất được đọc nhãn LLM-as-judge. Cả hai chỉ đọc report đã nằm trên
+đĩa. Không có đường nào để đáp án đi vào prompt của agent.
 
 ## 4. Dựng stack (Docker)
 

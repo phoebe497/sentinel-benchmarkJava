@@ -211,3 +211,21 @@ nghĩa thống kê.
 **Bàn giao:** [docs/handover/](../../docs/handover/README.md) - kiến trúc, hướng
 dẫn cài đặt, kịch bản demo, báo cáo kết quả chi tiết, giới hạn và rủi ro bảo mật
 còn tồn tại, product brief.
+
+---
+
+## Phụ lục (24/08/2026) — LLM-as-judge cho DAST
+
+Báo cáo gốc ngày 22/08 không đổi. Juice Shop vẫn **không** có ground truth
+corpus. Ngày 24/08 em thêm thước proxy: Grok 4.5 đọc 18 packet DAST (không thấy
+verdict của agent), Python chấm cùng policy TP/FP/FN/abstain.
+
+Nguồn: `artifacts/week-6/evaluation/verdict-metrics-dast-kb2-judge.json`.
+
+| | Số |
+| :--- | ---: |
+| Scored | 4 |
+| TP / FP / FN | 3 / 1 / 0 |
+| Precision / Recall / F1 | 0.750 / 1.000 / 0.857 |
+
+Đây là proxy, không phải nhãn Juice Shop. Chi tiết: `docs/methodology/verdict-and-scoring.md`.

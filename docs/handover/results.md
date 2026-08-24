@@ -4,7 +4,8 @@ Mọi số trong tài liệu này truy được về một file JSON/JSONL đã 
 ghi ngay cạnh bảng. Không số nào được nhập tay.
 
 - SAST: `artifacts/week-3/evaluation/verdict-metrics-sast-v4.json`
-- DAST: `artifacts/week-6/metrics/20260822T093819Z-flow.json`
+- DAST coverage: `artifacts/week-6/metrics/20260822T093819Z-flow.json`
+- DAST LLM-as-judge (Grok 4.5): `artifacts/week-6/evaluation/verdict-metrics-dast-kb2-judge.json`
 - Eval set: `artifacts/week-6/evaluation/eval-cases-metrics.json`
 - Provenance quét DAST: `artifacts/week-6/dast/manifest.json`
 
@@ -68,6 +69,31 @@ bằng response thật, không phải bằng lời scanner.
 Recall `1.000` với FN `0` là con số quan trọng nhất về mặt an toàn: **không lỗ
 hổng thật nào bị agent bỏ qua**. Sai số của nó nghiêng về phía cẩn thận quá mức,
 không nghiêng về phía bỏ sót.
+
+### 2.1b DAST — LLM-as-judge (Grok 4.5), không phải corpus
+
+Juice Shop không có nhãn corpus. Bảng Reports lấy Precision/Recall từ
+`verdict-metrics-dast-kb2-judge.json`: Grok 4.5 đọc 18 packet (alert + probe,
+không có verdict agent), rồi Python áp cùng policy SAST.
+
+| DAST (run `dast-kb2`, n=18) | |
+| :--- | ---: |
+| Judge `vulnerable` / `not_vulnerable` / `insufficient` | 4 / 4 / 10 |
+| Scored (có nhãn proxy) | 4 |
+| True positive | 3 |
+| False positive | 1 |
+| False negative | **0** |
+| True negative | 0 |
+| Agent abstain trên case đã có nhãn | 4 |
+| Precision / Recall / F1 | **0.750** / **1.000** / 0.857 |
+
+FP: alert "Modern Web Application" trên `/` — agent `confirmed_vulnerable`,
+judge coi là ghi chú scanner. Mười case judge abstain vì probe chưa chạy hoặc
+bị reject; không bịa ô matrix cho chúng.
+
+Cùng run đó, **5 finding được probe** (HTTP response tới endpoint; 3 path),
+**2 verdict đổi** sau response. Probed ≠ true positive. Bảng Reports không có
+hàng Overall: hai thước SAST/DAST không cộng được.
 
 ### 2.2 Đúng vì có source code, không phải vì đoán may
 
@@ -152,7 +178,9 @@ Ground truth của corpus không nói gì về endpoint Juice Shop, không nói 
 lúc nào là đúng, và không nói rationale có nêu đúng chi tiết quyết định hay
 không. `datasets/evaluation/week6-eval-cases.jsonl` lấp chỗ đó: 10 case với
 expected answer **viết tay bằng cách đọc source hoặc response**, mỗi case kèm
-`deciding_evidence` để tự bảo vệ khi agent phản đối.
+`deciding_evidence` để tự bảo vệ khi agent phản đối. LLM-as-judge (Grok 4.5)
+là thước **khác**: phủ cả 18 nhóm DAST trên Reports, không thay 5 case Juice
+Shop viết tay.
 
 | | prompt v3 | prompt v4 + KB-328 |
 | :--- | ---: | ---: |

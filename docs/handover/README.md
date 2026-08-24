@@ -7,7 +7,7 @@
 | Cấu hình CI | `.github/workflows/ci.yml` - 3 job: `test` (pytest + baseline + score + eval-cases + hygiene), `semgrep` (SARIF → GitHub Code scanning), `dast` (Juice Shop thật + ZAP baseline) |
 | Công cụ chuẩn hóa dữ liệu | `src/sentinel_benchmark/normalizer.py`, `indexer.py`, `analysis/grouping.py` |
 | Kho tri thức | `datasets/knowledge/security-topics.jsonl` (38 doc) + `knowledge_doc.schema.json` (draft 2020-12, strict) |
-| Security Analysis Agent | `src/sentinel_benchmark/analysis/` - `prompting.py`, `providers.py`, `guard.py`, `runner.py`, `verification.py`, `scoring.py`, `evalset.py`, `source_context.py` |
+| Security Analysis Agent | `src/sentinel_benchmark/analysis/` - `prompting.py`, `providers.py`, `guard.py`, `runner.py`, `verification.py`, `scoring.py`, `judge.py`, `evalset.py`, `source_context.py` |
 | Python Tool gửi request | `src/sentinel_benchmark/probe/` - `payloads.py`, `client.py`, `proposal.py`, `runner.py`; CLI ở `scripts/probe.py` |
 | Guardrails | `src/sentinel_benchmark/guardrails/injection.py`, `approval.py` |
 | Chức năng che dữ liệu | `src/sentinel_benchmark/guardrails/redaction.py` (chạy ở sink: prompt + log) |
@@ -28,7 +28,8 @@
 Tài liệu phương pháp đi kèm: [verdict và cách đo](../methodology/verdict-and-scoring.md),
 [DAST trên Juice Shop](../methodology/dast-juice-shop.md),
 [request tool](../methodology/request-tool.md),
-[System Prompt](../prompts/week6-security-analysis-agent.md).
+[System Prompt](../prompts/week6-security-analysis-agent.md),
+[DAST LLM-as-judge](../prompts/dast-llm-judge.md).
 
 ## 3. Báo cáo kết quả
 

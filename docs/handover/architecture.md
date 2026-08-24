@@ -139,10 +139,11 @@ từ chối trả lời là precision đẹp lên. Đúng cái động cơ ngư�
 - **DAST là passive.** ZAP baseline spider và đọc traffic, không tấn công. Nó
   không tìm được SQLi/XSS thực thi được; những gì nó báo phần lớn là thiếu
   header và lộ thông tin.
-- **Verdict DAST không có ground truth.** Không có corpus nào nói đúng/sai cho
-  một endpoint Juice Shop. Thay vì bịa confusion matrix, hệ thống đo *bao nhiêu
-  verdict đã được một response thật trả lời* và dùng eval set tự viết
-  (`datasets/evaluation/`) cho phần chất lượng.
+- **Verdict DAST không có corpus ground truth.** Không có corpus nào nói đúng/sai
+  cho một endpoint Juice Shop. Precision/Recall của nhánh này là LLM-as-judge
+  (Grok 4.5, `analysis/judge.py`), join sau khi report nằm đĩa. Coverage
+  (response thật / verdict đổi) và eval set tự viết (`datasets/evaluation/`)
+  vẫn là các thước độc lập.
 - **Source code chỉ có cho corpus.** Endpoint sống không có file nào để đọc, nên
   pass 1 của DAST luôn nghèo bằng chứng hơn SAST - đó là lý do abstain cao và là
   lý do probe tồn tại.

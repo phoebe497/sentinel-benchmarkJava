@@ -105,9 +105,9 @@ một dòng, thay vì để người dùng đoán.
 trình bày cho đúng nghĩa:
 
 - SAST có ground truth → hiện confusion matrix (TP/FP/FN/TN) + precision/recall/F1.
-- DAST **không** có ground truth → **không** hiện confusion matrix. Thay bằng
-  "bao nhiêu verdict đã được một response thật trả lời" và "bao nhiêu verdict đổi
-  sau probe".
+- DAST **không** có corpus ground truth → Precision/Recall lấy từ
+  `verdict-metrics-*-judge.json` (Grok 4.5) và phải ghi rõ *LLM-as-judge*,
+  kèm coverage (verified / revised). Không được trình bày như nhãn Juice Shop.
 - Abstain là cột riêng, có nhãn giải thích: *"agent từ chối kết luận; đếm riêng
   để việc từ chối không làm precision đẹp lên."*
 - Thêm khối eval set: `artifacts/week-6/evaluation/eval-cases-metrics.json` +

@@ -70,14 +70,16 @@ chạy; Docker Compose; dashboard đọc artifact.
 
 **Chưa có:** DAST chủ động (không tấn công, nên không tìm được SQLi/XSS thực thi
 được); luồng có xác thực (không login, không session); sửa lỗi tự động; corpus
-ngoài 100 case đầu; ground truth cho DAST.
+ngoài 100 case đầu; corpus ground truth cho DAST (hiện chỉ có proxy
+LLM-as-judge).
 
 ## Giới hạn cần nói thẳng
 
 - **Agent vẫn sai.** Eval set giữ lại đúng những case nó sai, kèm lập luận đối
   chứng: xem `artifacts/week-6/evaluation/eval-cases-failures.jsonl`.
-- **Không có ground truth cho DAST**, nên chất lượng phía đó dựa vào eval set tự
-  viết và tỉ lệ verdict được response thật trả lời.
+- **Không có corpus ground truth cho DAST.** Precision/Recall trên bảng Reports
+  là LLM-as-judge (Grok 4.5, n=4 scored) — proxy, không phải nhãn Juice Shop —
+  cộng eval set tự viết và tỉ lệ verdict được response thật trả lời.
 - **Passive scan không mang response header**, nên nhiều finding DAST *về nguyên
   tắc* không kết luận được nếu không probe. Đó là lý do bước probe tồn tại, không
   phải khuyết điểm của model.

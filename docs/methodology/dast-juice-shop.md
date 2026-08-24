@@ -68,7 +68,9 @@ the `{id}` wildcards the gateway publishes.
 **`EndpointGroup` has no `expected_cwe` field.** BenchmarkJava has ground truth;
 a running app does not. The DAST group carries only `reported_cwes` - what the
 scanner claimed - so no downstream code can quietly treat a scanner claim as a
-verified fact. A test asserts the field's absence.
+verified fact. A test asserts the field's absence. Precision/Recall on this
+branch is an LLM-as-judge proxy (Grok 4.5), stored after the run under
+`artifacts/week-6/evaluation/verdict-metrics-*-judge.json`.
 
 ## Non-determinism, stated up front
 

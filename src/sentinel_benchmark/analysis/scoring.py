@@ -8,8 +8,10 @@ Two rules govern this module, both from AGENTS.md:
   the false-positive or false-negative column would let the agent improve its
   precision by refusing to answer, which is exactly the wrong incentive.
 
-A report is scored only when the corpus knows the answer, so DAST reports are
-counted as ``no_ground_truth`` rather than being scored against a guess.
+A report is scored only when a label exists. BenchmarkJava supplies corpus
+labels; DAST does not. ``judge.py`` applies this same function to LLM-as-judge
+labels after the DAST reports are on disk. A missing label is
+``no_ground_truth``, never a guess.
 """
 
 from __future__ import annotations

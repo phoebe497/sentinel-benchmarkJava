@@ -21,6 +21,7 @@ from sentinel_benchmark.analysis.grouping import group_checksum, load_dast_group
 from sentinel_benchmark.analysis.providers import FakeProvider, NineRouterProvider
 from sentinel_benchmark.analysis.runner import run_batch
 from sentinel_benchmark.analysis.source_context import default_roots
+from sentinel_benchmark.analysis.judge import build_packets, load_labels, score_against_labels
 from sentinel_benchmark.analysis.scoring import false_cases, load_ground_truth, score_reports
 from sentinel_benchmark.analysis.verification import apply_verification, verify_report
 from sentinel_benchmark.indexer import build
@@ -240,6 +241,34 @@ def verify_run(dataset: str, tag: str, provider_name: str) -> dict:
 
 
 EVAL_CASES = ROOT / "datasets" / "evaluation" / "week6-eval-cases.jsonl"
+JUDGE_LABELS = WEEK6 / "evaluation" / "dast-llm-judge-labels.json"
+
+
+def judge_dast(tag: str, labels_path: Path | None = None) -> dict:
+    """Join LLM-as-judge labels onto a finished DAST run. Never before it is on disk."""
+    manifest = select_by_tag(WEEK6, tag)
+    if not manifest:
+        raise FileNotFoundError(f"No DAST run tagged {tag!r}")
+    run = load_run(Path(manifest["run_dir"]))
+    reports = run["reports"]
+    source = labels_path or JUDGE_LABELS
+    labels = load_labels(source)
+    scored = score_against_labels(reports, labels)
+    out_dir = WEEK6 / "evaluation"
+    packets = build_packets(reports)
+    write_jsonl(out_dir / "dast-llm-judge-packets.jsonl", packets)
+    atomic_json(
+        out_dir / f"verdict-metrics-{tag}-judge.json",
+        {
+            **scored,
+            "run_id": manifest["run_id"],
+            "tag": tag,
+            "judge_model": "grok-4.5",
+            "judge_prompt": "docs/prompts/dast-llm-judge.md",
+            "labels_source": str(source.relative_to(ROOT).as_posix()),
+        },
+    )
+    return {key: scored[key] for key in ("reports", "scored", "counts", "abstention_rate", "precision", "recall", "f1", "accuracy", "judge_distribution")}
 
 
 def eval_cases(sast_tag: str, dast_tag: str) -> dict:
@@ -272,6 +301,7 @@ def main() -> None:
     evaluate = sub.add_parser("evaluate"); evaluate.add_argument("--fake-tag", required=True); evaluate.add_argument("--real-tag")
     score = sub.add_parser("score"); score.add_argument("--tag", required=True); score.add_argument("--dataset", choices=["sast", "dast"], default="sast")
     cases = sub.add_parser("eval-cases"); cases.add_argument("--sast-tag", default="sast-final"); cases.add_argument("--dast-tag", default="flow")
+    judge = sub.add_parser("judge-dast"); judge.add_argument("--tag", default="dast-kb2"); judge.add_argument("--labels", type=Path, default=JUDGE_LABELS)
     verify = sub.add_parser("verify"); verify.add_argument("--tag", required=True); verify.add_argument("--dataset", choices=["sast", "dast"], default="dast"); verify.add_argument("--provider", choices=["fake", "nine_router"], required=True)
     report = sub.add_parser("report"); report.add_argument("--real-tag", required=True); report.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -292,6 +322,7 @@ def main() -> None:
     elif args.command == "score": result = score_run(args.dataset, args.tag)
     elif args.command == "verify": result = verify_run(args.dataset, args.tag, args.provider)
     elif args.command == "eval-cases": result = eval_cases(args.sast_tag, args.dast_tag)
+    elif args.command == "judge-dast": result = judge_dast(args.tag, args.labels)
     else: generate_report(args.real_tag, args.output); result = {"output": str(args.output)}
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

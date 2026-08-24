@@ -1,0 +1,132 @@
+{
+  "labels": [
+    {
+      "case_id": "DJ-01",
+      "confidence": 0.85,
+      "label": "not_vulnerable",
+      "rationale": "alert_title \"Modern Web Application\" is an info scanner note; probe_observed SPA fingerprints (inline script/style, CSP absent) do not prove a vulnerability under that title.",
+      "report_id": "AR-94a17e9b27585453"
+    },
+    {
+      "case_id": "DJ-02",
+      "confidence": 0.92,
+      "label": "vulnerable",
+      "rationale": "probe_observed confirms `Access-Control-Allow-Origin: *` on route_id \"js-root\", matching the reported Cross-Domain Misconfiguration.",
+      "report_id": "AR-397c5e15c3845382"
+    },
+    {
+      "case_id": "DJ-03",
+      "confidence": 0.95,
+      "label": "vulnerable",
+      "rationale": "probe_observed states \"No Content-Security-Policy header is present\" with probe_reached true and probe_status 200.",
+      "report_id": "AR-e613cbc72cfe5757"
+    },
+    {
+      "case_id": "DJ-04",
+      "confidence": 0.95,
+      "label": "insufficient",
+      "rationale": "probe_reached is false and probe_unverified_reason says \"A human rejected the request, so it was never sent\"; probe_observed is empty.",
+      "report_id": "AR-740e82718b5e5b63"
+    },
+    {
+      "case_id": "DJ-05",
+      "confidence": 0.9,
+      "label": "insufficient",
+      "rationale": "CSP Header Not Set is claimed in alert_title but probe_reached is false and probe_observed is empty, so absence is unverified.",
+      "report_id": "AR-8371ebd3b7d95bc9"
+    },
+    {
+      "case_id": "DJ-06",
+      "confidence": 0.9,
+      "label": "insufficient",
+      "rationale": "alert_title claims CSP Header Not Set on /ftp/eastere.gg, yet probe_reached is false and probe_observed is empty.",
+      "report_id": "AR-2ae3dcfb55c358fd"
+    },
+    {
+      "case_id": "DJ-07",
+      "confidence": 0.82,
+      "label": "not_vulnerable",
+      "rationale": "alert_title \"Modern Web Application\" is an info scanner note, not a concrete weakness; probe_reached false adds no contrary evidence.",
+      "report_id": "AR-2fe2338c885a56d0"
+    },
+    {
+      "case_id": "DJ-08",
+      "confidence": 0.8,
+      "label": "not_vulnerable",
+      "rationale": "alert_title \"Modern Web Application\" is a scanner info note; subject_id with \":365:14\" looks unroutable and probe_observed is empty.",
+      "report_id": "AR-53d06337aa685881"
+    },
+    {
+      "case_id": "DJ-09",
+      "confidence": 0.95,
+      "label": "vulnerable",
+      "rationale": "probe_observed reports private IP 192.168.99.100 plus localhost/127.0.0.1 URLs in the body for Private IP Disclosure.",
+      "report_id": "AR-224e325ceadb5496"
+    },
+    {
+      "case_id": "DJ-10",
+      "confidence": 0.85,
+      "label": "insufficient",
+      "rationale": "Session Management Response Identified has probe_reached false and empty probe_observed; cannot confirm the reported condition from this packet.",
+      "report_id": "AR-bf763273c3045b9c"
+    },
+    {
+      "case_id": "DJ-11",
+      "confidence": 0.88,
+      "label": "vulnerable",
+      "rationale": "probe_observed states route_id \"js-robots\" includes Access-Control-Allow-Origin: *, matching Cross-Domain Misconfiguration.",
+      "report_id": "AR-eeef3e12427b5375"
+    },
+    {
+      "case_id": "DJ-12",
+      "confidence": 0.8,
+      "label": "not_vulnerable",
+      "rationale": "alert_title \"Modern Web Application\" is an info scanner note, not a named vulnerability; probe_unverified_reason notes a rejected request.",
+      "report_id": "AR-e0bb31375c8e5e48"
+    },
+    {
+      "case_id": "DJ-13",
+      "confidence": 0.95,
+      "label": "insufficient",
+      "rationale": "Cross-Domain Misconfiguration cannot be verified: probe_reached false and probe_unverified_reason is human rejection; probe_observed empty.",
+      "report_id": "AR-5ecf5207032358ef"
+    },
+    {
+      "case_id": "DJ-14",
+      "confidence": 0.95,
+      "label": "insufficient",
+      "rationale": "CSP Header Not Set unverified: probe_reached false, probe_unverified_reason human rejection, and probe_observed empty.",
+      "report_id": "AR-d7d18ecb6cf355c8"
+    },
+    {
+      "case_id": "DJ-15",
+      "confidence": 0.9,
+      "label": "insufficient",
+      "rationale": "Missing Anti-clickjacking Header is only claimed in alert_title; probe_reached false and probe_observed empty so header absence is unconfirmed.",
+      "report_id": "AR-5eafb60747755cc9"
+    },
+    {
+      "case_id": "DJ-16",
+      "confidence": 0.85,
+      "label": "insufficient",
+      "rationale": "alert_url shows sid=_xVCsgtsTCrnnWw4AAAA but probe_reached is false and probe_observed is empty, so Session ID in URL is unverified.",
+      "report_id": "AR-aec88f46730f5ebd"
+    },
+    {
+      "case_id": "DJ-17",
+      "confidence": 0.9,
+      "label": "insufficient",
+      "rationale": "X-Content-Type-Options Header Missing lacks probe confirmation: probe_reached false and probe_observed empty.",
+      "report_id": "AR-6eb14cf281285562"
+    },
+    {
+      "case_id": "DJ-18",
+      "confidence": 0.88,
+      "label": "insufficient",
+      "rationale": "Timestamp Disclosure cites evidence=1528301887 in alert_excerpt, but probe_reached is false and probe_observed is empty.",
+      "report_id": "AR-80e1167373e356cc"
+    }
+  ],
+  "model": "grok-4.5",
+  "schema_version": "1.0"
+}

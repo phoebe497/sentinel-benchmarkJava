@@ -58,8 +58,21 @@ từ chối trả lời là precision đẹp lên - đúng cái động cơ ngư
 
 SAST có ground truth từ BenchmarkJava nên so trực tiếp. Ground truth **chỉ được
 join sau khi report đã ghi ra file** (`scripts/analyze.py score`), không bao giờ
-vào prompt. DAST không có ground truth, nên không có confusion matrix - thay vào
-đó đo **bao nhiêu verdict đã được một response thật kiểm chứng**.
+vào prompt. DAST **không có corpus ground truth**. Precision/Recall của nhánh
+này là **LLM-as-judge** (Grok 4.5, `docs/prompts/dast-llm-judge.md`): một model
+khác đọc packet đã redact (alert + probe, **không** có verdict của agent) rồi
+Python áp cùng policy TP/FP/FN/abstain (`scripts/analyze.py judge-dast`). Nhãn
+judge là proxy, không phải nhãn Juice Shop. Case judge cũng abstain thì đếm
+`no_ground_truth`, không bịa ô confusion matrix. Song song vẫn đo **bao nhiêu
+verdict đã được một response thật kiểm chứng**.
+
+Trên bảng Reports:
+
+- **Probed** = finding DAST đã nhận được HTTP response qua Gateway. Không phải
+  true positive. Một GET có thể phủ nhiều finding trên cùng path.
+- **Verdict changed** = agent đổi verdict sau khi đọc response đó.
+- Không có hàng Overall: Precision/Recall SAST và DAST dùng hai thước khác nhau,
+  cộng chúng là số bịa.
 
 ## Probe cập nhật verdict
 
@@ -253,3 +266,22 @@ Ba đề xuất còn lại, theo thứ tự giá trị:
 3. **Đo lại với n lớn hơn 25.** Mọi so sánh trong tài liệu này lệch nhau 1-2
    case; ở cỡ mẫu đó không kết luận được prompt nào tốt hơn, chỉ kết luận được
    nguyên nhân nào còn tồn tại.
+
+## LLM-as-judge cho DAST (Grok 4.5)
+
+Artifact: `artifacts/week-6/evaluation/verdict-metrics-dast-kb2-judge.json`.
+Nhãn: `dast-llm-judge-labels.json`. Prompt: `docs/prompts/dast-llm-judge.md`.
+Run: `20260822T085445Z-dast-kb2`.
+
+| | Grok 4.5 judge |
+| :--- | ---: |
+| Judge `vulnerable` / `not_vulnerable` / `insufficient` | 4 / 4 / 10 |
+| Scored (có nhãn proxy) | 4 |
+| TP / FP / FN / TN | 3 / 1 / 0 / 0 |
+| Agent abstain trên case đã có nhãn | 4 |
+| Precision / Recall / F1 | **0.750** / **1.000** / 0.857 |
+
+FP duy nhất: DJ-01 — agent `confirmed_vulnerable` cho alert "Modern Web
+Application"; judge coi đó là ghi chú scanner, không phải lỗ hổng được báo.
+Mười case `insufficient` của judge phần lớn là probe bị reject hoặc chưa gửi —
+đúng policy "không kết luận khi chưa thấy header/body".

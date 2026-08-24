@@ -160,9 +160,9 @@ def main() -> int:
             run.count("verifications.verdict_changed", changed)
 
         with run.stage("score") as detail:
-            # DAST has no ground-truth corpus, so the confusion matrix stays
-            # empty on purpose and the honest measure is how many verdicts a
-            # real response answered.
+            # Flow scoring still joins no corpus labels. DAST Precision/Recall
+            # on the Reports page comes from `analyze.py judge-dast` against
+            # Grok 4.5 labels written after a dedicated analysis run.
             scored = score_reports(updated, {})
             analyze.atomic_json(WEEK6 / "evaluation" / f"verdict-metrics-{run.run_id}.json", {**scored, "run_id": run.run_id, "tag": args.tag, "ground_truth_source": None})
             for verdict, count in scored["verdict_distribution"].items():

@@ -14,9 +14,11 @@ There are two evidence sources and exactly one agent:
  ships ground truth, so it is what the agent's accuracy is measured on.
  It is source code only and is never deployed.
 - **DAST** over OWASP Juice Shop running in the lab (`docker-compose.yml`),
- scanned by the OWASP ZAP baseline (passive). It has no ground truth, but it
- has live endpoints, so it is the only source that can produce a probe
- request, an approval decision and a response to filter.
+ scanned by the OWASP ZAP baseline (passive). It has no corpus ground truth.
+ Precision/Recall on that branch is an LLM-as-judge proxy
+ (`analysis/judge.py`, Grok 4.5), joined only after the reports exist. The
+ live endpoints are still the only source that can produce a probe request,
+ an approval decision and a response to filter.
 
 Both are normalized into the same observation schema and analysed by the same
 agent under the same output contract. WebGoat is not part of the active
@@ -46,8 +48,10 @@ Each stage must remain independently runnable and independently verifiable.
   (grows across weeks; never fork per week).
   - `analysis/`: the agent (grouping, prompting, providers, guard, runner,
     evaluation, chat, artifacts). Since Week 6 also `verification.py` (a probe
-    response re-decides one verdict) and `scoring.py` (TP/FP/FN/TN plus a
-    separate abstain column, joined against ground truth only after the run).
+    response re-decides one verdict), `scoring.py` (TP/FP/FN/TN plus a
+    separate abstain column, joined against BenchmarkJava ground truth only
+    after the run), and `judge.py` (the same matrix against Grok 4.5 labels
+    for DAST, also joined only after the run).
     `evalset.py` grades the hand-written cases in `datasets/evaluation/`, which
     cover what the corpus cannot: a live endpoint, whether an abstention was
     right, and whether the rationale named the deciding detail.
@@ -99,8 +103,10 @@ Do not create separate copies of shared source code for each week.
  digest) rather than counts, and regenerate
  `artifacts/week-6/dast/manifest.json` with `scripts/security/zap_dast.py`
  instead of editing it by hand.
-- Juice Shop has no ground truth. Never let a scanner claim about it be
- recorded, displayed or scored as a verified fact.
+- Juice Shop has no corpus ground truth. Never let a scanner claim about it
+  be recorded, displayed or scored as a verified fact. An LLM-as-judge
+  label is a proxy and must be stored under `artifacts/week-6/evaluation/`
+  with `method: llm_as_judge`; the UI must say so.
 - Week 1 compatibility scope is:
   `BenchmarkTest00001.java` through `BenchmarkTest00100.java`.
 - Do not send the ground-truth CSV or Benchmark metadata to a scanner.
